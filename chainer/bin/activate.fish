@@ -32,7 +32,7 @@ end
 # unset irrelevant variables
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/remote/mlsalt-2016/add39/Thesis/chainer"
+set -gx VIRTUAL_ENV "/remote/mlsalt-2016/add39/Thesis/thesis/chainer"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH

@@ -28,7 +28,7 @@ x_train, x_test = datasets.get_mnist()
 
 
 #num_epochs = 100
-num_epochs = 20
+num_epochs = 100
 
 train_free_energies = numpy.zeros(num_epochs)
 test_free_energies = numpy.zeros(num_epochs)
@@ -101,8 +101,6 @@ plt.show()
 plt.savefig('reconstruct.png', bbox_inches='tight')
 
 # Generating
-
-
 x_samples = vae.generate(25,False)
 plt.figure()
 for i in xrange(25):

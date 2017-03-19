@@ -39,7 +39,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="/remote/mlsalt-2016/add39/Thesis/chainer"
+VIRTUAL_ENV="/remote/mlsalt-2016/add39/Thesis/thesis/chainer"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
