@@ -41,8 +41,8 @@ for epoch in xrange(num_epochs):
 
     for i in xrange(0, 60000, batchsize):
         #x_batch = Variable(x_train[indexes[i : i + batchsize]])
-        subset = x_train[indexes[i : i + batchsize]][0]
-        x_batch = Variable(subset)
+	subset = x_train[indexes[i : i + batchsize]][0]
+	x_batch = Variable(subset)
         free_energy = vae.free_energy(x_batch)
         sum_free_energy += free_energy.data
         optimizer.zero_grads()
@@ -53,11 +53,10 @@ for epoch in xrange(num_epochs):
     sum_test_free_energy = 0
     for i in xrange(0, 10000, batchsize):
         #x_batch = Variable(x_test[indexes[i : i + batchsize]])
-        subset = x_test[indexes[i : i + batchsize]][0]
-        x_batch = Variable(subset)
-        free_energy  = vae.free_energy(x_batch)
+	subset = x_test[indexes[i : i + batchsize]][0]
+	x_batch = Variable(subset)
+        free_energy = vae.free_energy(x_batch)
         sum_test_free_energy += free_energy.data
-       
 
     train_free_energies[epoch] = sum_free_energy/60000
     test_free_energies[epoch] = sum_test_free_energy/10000
