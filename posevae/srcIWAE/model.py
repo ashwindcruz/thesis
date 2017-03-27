@@ -5,6 +5,7 @@ import chainer
 import chainer.functions as F
 import chainer.links as L
 from chainer import cuda
+import pdb
 
 def gaussian_kl_divergence(mu, ln_var):
     """D_{KL}(N(mu,var) | N(0,1))"""
@@ -27,6 +28,19 @@ def gaussian_logp(x, mu, ln_var):
         + D*math.log(2.0*math.pi))
 
     return logp_sum / batchsize
+
+def gaussian(x, mu, ln_var):
+    """log N(x ; mu, var)"""
+    batchsize = mu.data.shape[0]
+    D = x.data.size
+    S = F.exp(ln_var)
+    xc = x - mu
+
+    logp_sum = -0.5*(F.sum((xc*xc) / S) + F.sum(ln_var)
+        + D*math.log(2.0*math.pi))
+
+    return F.exp(logp_sum / batchsize)
+
 
 class VAE(chainer.Chain):
     def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples=1):
@@ -77,24 +91,26 @@ class VAE(chainer.Chain):
             z = F.gaussian(self.qmu, self.qln_var)
 
             # Compute log q(z|x)
-            encoder_log = gaussian_logp(z, self.qmu, self.qln_var)
-
+            encoder_log = float((gaussian_logp(z, self.qmu, self.qln_var)).data)
+            
             # Obtain parameters for p(x|z)
             self.decode(z)
 
             # Compute log p(x|z)
-            decode_log = gaussian_logp(x, self.pmu, self.pln_var)
-
+            decoder_log = float((gaussian_logp(x, self.pmu, self.pln_var)).data)
+            
             # Compute log p(z). The odd notation being used is to supply a mean of 0 and covariance of 1
-            prior_log = gaussian_logp(z, self.qmu*0, self.qln_var/self.qln_var)
-
+            prior_log = float((gaussian_logp(z, self.qmu*0, self.qln_var/self.qln_var)).data)
+            
             # Add this importance weight to the sum. We were working in log space so convert back
-            self.importance_weights += F.exp(decode_log + prior_log - encoder_log)
+            self.importance_weights += math.exp(decoder_log + prior_log - encoder_log)
+           
+            #pdb.set_trace()
 
         self.importance_weights /= self.num_zsamples
-        self.importance_weights = F.log(self.importance_weights)
+        self.importance_weights = math.log(self.importance_weights)
         
-        self.obj = self.importance_weights
-
+        self.obj = chainer.Variable(np.asarray(self.importance_weights, dtype=np.float32))
+        #pdb.set_trace()
         return self.obj
 
