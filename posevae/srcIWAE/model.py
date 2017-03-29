@@ -29,7 +29,7 @@ def gaussian_logp(x, mu, ln_var):
 
     return logp_sum / batchsize
 
-def gaussian(x, mu, ln_var):
+def gaussian_lik(x, mu, ln_var):
     """log N(x ; mu, var)"""
     batchsize = mu.data.shape[0]
     D = x.data.size
@@ -41,6 +41,21 @@ def gaussian(x, mu, ln_var):
 
     return F.exp(logp_sum / batchsize)
 
+def logsumexp(collected):
+    
+    minimum = np.inf
+    for var in collected:
+        value = float(var.data)
+        if(value<minimum):
+            minimum = value
+        
+    minimum = chainer.Variable(cuda.cupy.asarray(minimum, dtype=np.float32))
+
+    summedVal = 0        
+    for var in collected:
+        summedVal += F.exp(var - minimum)        
+
+    return(minimum + F.log(summedVal))
 
 class VAE(chainer.Chain):
     def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples=1):
@@ -80,37 +95,39 @@ class VAE(chainer.Chain):
         self.pmu = self.plin_mu(h)
         self.pln_var = self.plin_ln_var(h)
 
+        
+
     def __call__(self, x):
         # Obtain parameters for q(z|x)
         self.encode(x)
-
+        xp = cuda.cupy
         self.importance_weights = 0
+        self.w_holder = []
 
         for j in xrange(self.num_zsamples):
             # Sample z ~ q(z|x)
             z = F.gaussian(self.qmu, self.qln_var)
 
             # Compute log q(z|x)
-            encoder_log = float((gaussian_logp(z, self.qmu, self.qln_var)).data)
+            encoder_log = gaussian_logp(z, self.qmu, self.qln_var)
             
             # Obtain parameters for p(x|z)
             self.decode(z)
 
             # Compute log p(x|z)
-            decoder_log = float((gaussian_logp(x, self.pmu, self.pln_var)).data)
+            decoder_log = gaussian_logp(x, self.pmu, self.pln_var)
             
             # Compute log p(z). The odd notation being used is to supply a mean of 0 and covariance of 1
-            prior_log = float((gaussian_logp(z, self.qmu*0, self.qln_var/self.qln_var)).data)
+            prior_log = gaussian_logp(z, self.qmu*0, self.qln_var/self.qln_var)
             
-            # Add this importance weight to the sum. We were working in log space so convert back
-            self.importance_weights += math.exp(decoder_log + prior_log - encoder_log)
-           
-            #pdb.set_trace()
-
-        self.importance_weights /= self.num_zsamples
-        self.importance_weights = math.log(self.importance_weights)
+            # Compute w' for this sample
+            k_log = chainer.Variable(xp.asarray(np.log(self.num_zsamples), dtype=np.float32))
+            
+            # Store the latest log weight'
+            self.w_holder.append(decoder_log + prior_log - encoder_log - k_log)
         
-        self.obj = chainer.Variable(np.asarray(self.importance_weights, dtype=np.float32))
-        #pdb.set_trace()
+        self.pre_obj = logsumexp(self.w_holder)
+
+        self.obj = self.pre_obj*-1 
         return self.obj
 

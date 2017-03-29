@@ -45,6 +45,8 @@ import cupy
 import model
 import util
 
+import pdb
+
 args = docopt(__doc__, version='train 0.1')
 print(args)
 
