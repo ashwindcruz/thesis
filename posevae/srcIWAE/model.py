@@ -42,20 +42,34 @@ def gaussian_lik(x, mu, ln_var):
     return F.exp(logp_sum / batchsize)
 
 def logsumexp(collected):
-    
-    minimum = np.inf
-    for var in collected:
-        value = float(var.data)
-        if(value<minimum):
-            minimum = value
+    # Using streaming method proposed from:
+    # http://www.nowozin.net/sebastian/blog/streaming-log-sum-exp-computation.html
+     
+    #minimum = np.inf
+    #for var in collected:
+    #    value = float(var.data)
+    #    if(value<minimum):
+    #        minimum = value
         
-    minimum = chainer.Variable(cuda.cupy.asarray(minimum, dtype=np.float32))
+    #minimum = chainer.Variable(cuda.cupy.asarray(minimum, dtype=np.float32))
 
-    summedVal = 0        
+    #summedVal = 0        
+    #for var in collected:
+    #    summedVal += F.exp(var - minimum)        
+
+    #return(minimum + F.log(summedVal))
+
+    minimum = chainer.Variable(cuda.cupy.asarray(np.inf, dtype=np.float32))  
+    r = 0.0
     for var in collected:
-        summedVal += F.exp(var - minimum)        
-
-    return(minimum + F.log(summedVal))
+        if float(var.data)>=float(minimum.data):
+            r += F.exp(var - minimum)
+        else:
+            r *= F.exp(minimum - var)
+            r += 1.0
+            minimum = var
+    
+    return(F.log(r) + minimum)
 
 class VAE(chainer.Chain):
     def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples=1):
