@@ -23,6 +23,8 @@ Options:
   --time-sample=<sec>          Print status every so often [default: 600].
   --dump-every=<sec>           Dump model every so often [default: 900]
 
+  --record-interval <
+
 The data.mat file must contain a (N,d) array of N instances, d dimensions
 each.
 """
@@ -144,6 +146,9 @@ with cupy.cuda.Device(gpu_id):
         obj_mean += obj.data
         obj_count += 1
 
+        # A separate variable to keep track of the training ELBO per batch
+        train_obj = obj.data
+
         # (Optionally:) visualize computation graph
         if bi == 1 and args['--vis'] is not None:
             print "Writing computation graph to '%s'." % args['--vis']
@@ -164,6 +169,11 @@ with cupy.cuda.Device(gpu_id):
             Xsample = F.gaussian(vae.pmu, vae.pln_var)
             Xsample.to_cpu()
             sio.savemat('%s_samples_%d.mat' % (args['-o'], total), { 'X': Xsample.data })
+
+        # Get the ELBO for the test set
+        if(bi%100==0):
+            a=1
+       #TODO
 
 # Save model
 if args['-o'] is not None:
