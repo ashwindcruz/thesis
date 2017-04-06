@@ -10,20 +10,20 @@ Usage:
   train.py [options] <data.mat>
 
 Options:
-  -h --help                    Show this help screen.
-  -g <device>, --device        GPU id to train model on.  Use -1 for CPU [default: -1].
-  -o <modelprefix>             Write trained model to given file.h5 [default: output].
-  --vis <graph.ext>            Visualize computation graph.
-  -b <batchsize>, --batchsize  Minibatch size [default: 100].
-  -t <runtime>, --runtime      Total training runtime in seconds [default: 7200].
-  --vae-samples <zcount>       Number of samples in VAE z [default: 1]
-  --nhidden <nhidden>          Number of hidden dimensions [default: 128].
-  --nlatent <nz>               Number of latent VAE dimensions [default: 16].
-  --time-print=<sec>           Print status every so often [default: 60].
-  --time-sample=<sec>          Print status every so often [default: 600].
-  --dump-every=<sec>           Dump model every so often [default: 900]
-
-  --record-interval <
+  -h --help                     Show this help screen.
+  -g <device>, --device         GPU id to train model on.  Use -1 for CPU [default: -1].
+  -o <modelprefix>              Write trained model to given file.h5 [default: output].
+  --vis <graph.ext>             Visualize computation graph.
+  -b <batchsize>, --batchsize   Minibatch size [default: 100].
+  -t <runtime>, --runtime       Total training runtime in seconds [default: 7200].
+  --vae-samples <zcount>        Number of samples in VAE z [default: 1]
+  --nhidden <nhidden>           Number of hidden dimensions [default: 128].
+  --nlatent <nz>                Number of latent VAE dimensions [default: 16].
+  --time-print=<sec>            Print status every so often [default: 60].
+  --time-sample=<sec>           Print status every so often [default: 600].
+  --dump-every=<sec>            Dump model every so often [default: 900].
+  --log-interval <log-interval> Number of batches before logging training and testing ELBO [default: 100].
+  --test <test>                 Number of samples to set aside for testing [default:70000]
 
 The data.mat file must contain a (N,d) array of N instances, d dimensions
 each.
@@ -63,6 +63,13 @@ N = X.shape[0]
 d = X.shape[1]
 print "%d instances, %d dimensions" % (N, d)
 
+# Split data into training and testing data
+X  = np.random.permutation(X)
+test_size = int(args['--test'])
+X_test = X[0:test_size,:]
+X_train = X[test_size:,:]
+N = X_train.shape[0]
+pdb.set_trace()
 # Setup model
 nhidden = int(args['--nhidden'])
 print "%d hidden dimensions" % nhidden
@@ -70,6 +77,9 @@ nlatent = int(args['--nlatent'])
 print "%d latent VAE dimensions" % nlatent
 zcount = int(args['--vae-samples'])
 print "Using %d VAE samples per instance" % zcount
+
+log_interval = int(args['--log-interval'])
+print "Recording training and testing ELBO every %d batches" % log_interval
 
 vae = model.VAE(d, nhidden, nlatent, zcount)
 opt = optimizers.Adam()
@@ -108,6 +118,20 @@ obj_mean = 0.0
 obj_count = 0
 
 with cupy.cuda.Device(gpu_id):
+    # Set up variables that cover the entire training and testing sets
+    x_train = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
+    x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
+
+    # Set up the training and testing log files
+    train_log_file = args['-o'] + '_train_log.txt'
+    test_log_file  = args['-o'] +  '_test_log.txt' 
+
+    with open(train_log_file, 'w+') as f:
+        f.write('Training Log')
+
+    with open(test_log_file, 'w+') as f:
+        f.write('Testing Log')
+
     while True:
         bi += 1
         period_bi += 1
@@ -140,14 +164,11 @@ with cupy.cuda.Device(gpu_id):
 
         # Build training batch (random sampling without replacement)
         J = np.sort(np.random.choice(N, batchsize, replace=False))
-        x = chainer.Variable(xp.asarray(X[J,:], dtype=np.float32))
+        x = chainer.Variable(xp.asarray(X_train[J,:], dtype=np.float32))
 
         obj = vae(x)
         obj_mean += obj.data
         obj_count += 1
-
-        # A separate variable to keep track of the training ELBO per batch
-        train_obj = obj.data
 
         # (Optionally:) visualize computation graph
         if bi == 1 and args['--vis'] is not None:
@@ -170,10 +191,28 @@ with cupy.cuda.Device(gpu_id):
             Xsample.to_cpu()
             sio.savemat('%s_samples_%d.mat' % (args['-o'], total), { 'X': Xsample.data })
 
-        # Get the ELBO for the test set
-        if(bi%100==0):
-            a=1
-       #TODO
+        # Get the ELBO for the training and testing set and record it
+        # -1 is because we want to record the first set which has bi value of 1
+        if((bi-1)%log_interval==0):
+                        
+            # Training results
+            training_obj = 0
+            for i in range(0,N/7000):
+                x_train = chainer.Variable(xp.asarray(X_train[i*700:(i+1)*700], dtype=np.float32))
+                obj = vae(x_train)
+                training_obj += -obj.data
+            x_train = chainer.Variable(xp.asarray(X_train[700000:,:], dtype=np.float32))
+            obj = vae(x_train)
+            training_obj += -obj.data
+            training_obj /= 11 # We want to average by the number of batches
+            with open(train_log_file, 'a') as f:
+                f.write(str(training_obj) + '\n')
+            
+            # Testing results
+            obj = vae(x_test)
+            testing_obj = -obj.data
+            with open(test_log_file, 'a') as f:
+                f.write(str(testing_obj) + '\n')
 
 # Save model
 if args['-o'] is not None:

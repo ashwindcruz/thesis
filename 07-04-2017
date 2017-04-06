@@ -1,0 +1,10 @@
+Pre-Meeting
+
+Discussion Points
+
+1. How useful is it to record the ELBO per batch? 
+2. How often should we record the ELBO for the entire training and testing set? 
+3. Which of these is effective for examining the training procedure as opposed to comparing different models? 
+4. How do we best take into account the time taken by the model to train? For example, a simpler model may utilize more iterations in an hour which perhaps might lead to better results than a more complex model within an hour. So should we be comparing models after a certain number of iterations or after a certain amount of training time? 
+
+
