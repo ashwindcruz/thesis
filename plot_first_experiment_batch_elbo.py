@@ -10,7 +10,7 @@ Plot the ELBO per batch based on the log files with the format provided in 'Firs
 import numpy as np
 from matplotlib import pyplot as plt
 
-plt.xkcd()
+#plt.xkcd()
 
 elboList = []
 
@@ -26,8 +26,8 @@ fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
 ax.spines['right'].set_color('none')
 ax.spines['top'].set_color('none')
-plt.xticks([])
-plt.yticks([])
+#plt.xticks([])
+#plt.yticks([])
 
 #plt.annotate(
 #    'WEIRD ELBO MEASURES',
