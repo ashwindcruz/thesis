@@ -1,4 +1,3 @@
-
 import numpy as np
 import math
 import chainer
@@ -27,6 +26,7 @@ def gaussian_logp(x, mu, ln_var):
     logp_sum = -0.5*(F.sum((xc*xc) / S) + F.sum(ln_var)
         + D*math.log(2.0*math.pi))
 
+        
     return logp_sum / batchsize
 
 def gaussian_lik(x, mu, ln_var):

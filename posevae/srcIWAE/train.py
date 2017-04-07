@@ -69,7 +69,7 @@ test_size = int(args['--test'])
 X_test = X[0:test_size,:]
 X_train = X[test_size:,:]
 N = X_train.shape[0]
-pdb.set_trace()
+#pdb.set_trace()
 # Setup model
 nhidden = int(args['--nhidden'])
 print "%d hidden dimensions" % nhidden
@@ -127,10 +127,10 @@ with cupy.cuda.Device(gpu_id):
     test_log_file  = args['-o'] +  '_test_log.txt' 
 
     with open(train_log_file, 'w+') as f:
-        f.write('Training Log')
+        f.write('Training Log \n')
 
     with open(test_log_file, 'w+') as f:
-        f.write('Testing Log')
+        f.write('Testing Log \n')
 
     while True:
         bi += 1
@@ -147,11 +147,12 @@ with cupy.cuda.Device(gpu_id):
         total = bi * batchsize
 
         # Print status information
-        if now >= print_at:
+        #if now >= print_at:
+        if True:
             print_at = now + print_every_s
             printcount += 1
             tput = float(period_bi * batchsize) / (now - period_start_at)
-            EO = obj_mean / obj_count
+            EO = obj_mean #/ obj_count
             print "   %.1fs of %.1fs  [%d] batch %d, E[obj] %.4f,  %.2f S/s, %d total" % \
                   (tpassed, runtime, printcount, bi, EO, tput, total)
 
@@ -196,15 +197,20 @@ with cupy.cuda.Device(gpu_id):
         if((bi-1)%log_interval==0):
                         
             # Training results
+            training_batch_size = 70000
             training_obj = 0
-            for i in range(0,N/7000):
-                x_train = chainer.Variable(xp.asarray(X_train[i*700:(i+1)*700], dtype=np.float32))
+            for i in range(0,N/training_batch_size):
+                #print(i*training_batch_size)
+                #print((i+1)*training_batch_size)
+                x_train = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
                 obj = vae(x_train)
                 training_obj += -obj.data
-            x_train = chainer.Variable(xp.asarray(X_train[700000:,:], dtype=np.float32))
+            # One final smaller batch to cover what couldn't be captured in the loop
+            x_train = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
             obj = vae(x_train)
             training_obj += -obj.data
-            training_obj /= 11 # We want to average by the number of batches
+            #pdb.set_trace()
+            training_obj /= (N/training_batch_size) # We want to average by the number of batches
             with open(train_log_file, 'a') as f:
                 f.write(str(training_obj) + '\n')
             
