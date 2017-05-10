@@ -219,7 +219,7 @@ with cupy.cuda.Device(gpu_id):
             testing_obj = -obj.data
             with open(test_log_file, 'a') as f:
                 f.write(str(testing_obj) + '\n')
-            pdb.set_trace()
+            #pdb.set_trace()
 # Save model
 if args['-o'] is not None:
     modelmeta = args['-o'] + '.meta.yaml'
