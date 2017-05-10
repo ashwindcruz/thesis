@@ -121,7 +121,7 @@ with cupy.cuda.Device(gpu_id):
     # Set up variables that cover the entire training and testing sets
     x_train = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
     x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
-
+    
     # Set up the training and testing log files
     train_log_file = args['-o'] + '_train_log.txt'
     test_log_file  = args['-o'] +  '_test_log.txt' 
@@ -219,7 +219,7 @@ with cupy.cuda.Device(gpu_id):
             testing_obj = -obj.data
             with open(test_log_file, 'a') as f:
                 f.write(str(testing_obj) + '\n')
-
+            pdb.set_trace()
 # Save model
 if args['-o'] is not None:
     modelmeta = args['-o'] + '.meta.yaml'

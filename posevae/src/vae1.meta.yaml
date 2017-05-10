@@ -2,7 +2,7 @@
 --device: '0'
 --dump-every: '900'
 --help: false
---log-interval: '100'
+--log-interval: '10'
 --nhidden: '256'
 --nlatent: '16'
 --runtime: '300'
