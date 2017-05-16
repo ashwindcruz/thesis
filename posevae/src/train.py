@@ -64,12 +64,15 @@ d = X.shape[1]
 print "%d instances, %d dimensions" % (N, d)
 
 # Split data into training and testing data
-X  = np.random.permutation(X)
+#X  = np.random.permutation(X)
 test_size = int(args['--test'])
-X_test = X[0:test_size,:]
-X_train = X[test_size:,:]
-N = X_train.shape[0]
-#pdb.set_trace()
+#X_test = X[0:test_size,:]
+#X_train = X[test_size:,:]
+
+# To make things easier for debugging, split testing and training without mixing up indicees that we use
+#N = X_train.shape[0]
+N -= test_size
+
 # Setup model
 nhidden = int(args['--nhidden'])
 print "%d hidden dimensions" % nhidden
@@ -209,7 +212,7 @@ with cupy.cuda.Device(gpu_id):
             x_train = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
             obj = vae(x_train)
             training_obj += -obj.data
-            #pdb.set_trace()
+            
             training_obj /= (N/training_batch_size) # We want to average by the number of batches
             with open(train_log_file, 'a') as f:
                 f.write(str(training_obj) + '\n')
@@ -219,7 +222,7 @@ with cupy.cuda.Device(gpu_id):
             testing_obj = -obj.data
             with open(test_log_file, 'a') as f:
                 f.write(str(testing_obj) + '\n')
-            #pdb.set_trace()
+            
 # Save model
 if args['-o'] is not None:
     modelmeta = args['-o'] + '.meta.yaml'

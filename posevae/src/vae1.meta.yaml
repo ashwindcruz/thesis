@@ -6,7 +6,7 @@
 --nhidden: '256'
 --nlatent: '16'
 --runtime: '300'
---test: '100000'
+--test: '200000'
 --time-print: '60'
 --time-sample: '120'
 --vae-samples: '3'
