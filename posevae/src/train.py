@@ -66,12 +66,12 @@ print "%d instances, %d dimensions" % (N, d)
 # Split data into training and testing data
 #X  = np.random.permutation(X)
 test_size = int(args['--test'])
-#X_test = X[0:test_size,:]
-#X_train = X[test_size:,:]
+X_test = X[0:test_size,:]
+X_train = X[test_size:,:]
 
 # To make things easier for debugging, split testing and training without mixing up indicees that we use
-#N = X_train.shape[0]
-N -= test_size
+N = X_train.shape[0]
+#N -= test_size
 
 # Setup model
 nhidden = int(args['--nhidden'])
@@ -150,8 +150,8 @@ with cupy.cuda.Device(gpu_id):
         total = bi * batchsize
 
         # Print status information
-        #if now >= print_at:
-        if True:
+        if now >= print_at:
+        #if True:
             print_at = now + print_every_s
             printcount += 1
             tput = float(period_bi * batchsize) / (now - period_start_at)
@@ -210,16 +210,18 @@ with cupy.cuda.Device(gpu_id):
                 training_obj += -obj.data
             # One final smaller batch to cover what couldn't be captured in the loop
             x_train = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
-            obj = vae(x_train)
-            training_obj += -obj.data
+            obj_train = vae(x_train)
+            training_obj += -obj_train.data
             
             training_obj /= (N/training_batch_size) # We want to average by the number of batches
             with open(train_log_file, 'a') as f:
                 f.write(str(training_obj) + '\n')
             
+            vae.cleargrads()
+
             # Testing results
-            obj = vae(x_test)
-            testing_obj = -obj.data
+            obj_test = vae(x_test)
+            testing_obj = -obj_test.data
             with open(test_log_file, 'a') as f:
                 f.write(str(testing_obj) + '\n')
             
