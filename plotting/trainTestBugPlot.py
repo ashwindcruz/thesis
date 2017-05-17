@@ -31,8 +31,8 @@ plt.plot(trainingData)
 plt.plot(testingData)
 plt.savefig('bugPlot.png')
 
-ratios = []
-for i in range(0,len(trainingData)):
-    ratios.append(trainingData[i]/testingData[i])
+#ratios = []
+#for i in range(0,len(trainingData)):
+#    ratios.append(trainingData[i]/testingData[i])
 
-pdb.set_trace()
+#pdb.set_trace()
