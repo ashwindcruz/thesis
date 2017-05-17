@@ -121,8 +121,8 @@ obj_count = 0
 
 with cupy.cuda.Device(gpu_id):
     # Set up variables that cover the entire training and testing sets
-    x_train = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
-    x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
+    x_train_c = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
+    x_test_c = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
     
     # Set up the training and testing log files
     train_log_file = args['-o'] + '_train_log.txt'
@@ -172,13 +172,13 @@ with cupy.cuda.Device(gpu_id):
             training_obj = 0
             for i in range(0,N/training_batch_size):
                 vae.cleargrads()
-                x_train = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
-                obj = vae(x_train)
+                x_train_c = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
+                obj = vae(x_train_c)
                 training_obj += -obj.data
             # One final smaller batch to cover what couldn't be captured in the loop
             vae.cleargrads()
-            x_train = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
-            obj_train = vae(x_train)
+            x_train_c = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
+            obj_train = vae(x_train_c)
             training_obj += -obj_train.data
             
             training_obj /= (N/training_batch_size) # We want to average by the number of batches
@@ -188,7 +188,7 @@ with cupy.cuda.Device(gpu_id):
             vae.cleargrads()
 
             # Testing results
-            obj_test = vae(x_test)
+            obj_test = vae(x_test_c)
             testing_obj = -obj_test.data
             with open(test_log_file, 'a') as f:
                 f.write(str(testing_obj) + '\n')
