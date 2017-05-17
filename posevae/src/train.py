@@ -66,12 +66,12 @@ print "%d instances, %d dimensions" % (N, d)
 # Split data into training and testing data
 #X  = np.random.permutation(X)
 test_size = int(args['--test'])
-#X_test = X[0:test_size,:]
-#X_train = X[test_size:,:]
+X_test = X[0:test_size,:]
+X_train = X[test_size:,:]
 
 # To make things easier for debugging, split testing and training without mixing up indicees that we use
-#N = X_train.shape[0]
-N -= test_size
+N = X_train.shape[0]
+#N -= test_size
 
 # Setup model
 nhidden = int(args['--nhidden'])
