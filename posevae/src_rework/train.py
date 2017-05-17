@@ -69,6 +69,8 @@ test_size = int(args['--test'])
 X_test = X[0:test_size,:]
 X_train = X[test_size:,:]
 
+X_test = np.random.rand(test_size,d)
+
 N = X_train.shape[0]
 #N -= test_size
 
@@ -122,6 +124,7 @@ obj_count = 0
 with cupy.cuda.Device(gpu_id):
     # Set up variables that cover the entire training and testing sets
     x_train_c = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
+    
     x_test_c = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
     
     # Set up the training and testing log files
