@@ -163,19 +163,21 @@ with cupy.cuda.Device(gpu_id):
                         
             # Training results
             #training_batch_size = 70000
-            #training_obj = 0
+            training_obj = 0
 
-            #for i in range(0,N/training_batch_size):
-            #    x_train_c = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
-            #    obj_train = vae(x_train_c)
-            #    training_obj += -obj_train.data
+            for i in range(0,N/training_batch_size):
+                vae.cleargrads()
+                x_train_c = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
+                obj_train = vae(x_train_c)
+                training_obj += -obj_train.data
 
             # One final smaller batch to cover what couldn't be captured in the loop
-            #x_train_c = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
-            #obj_train = vae(x_train_c)
-            #training_obj += -obj_train.data
+            vae.cleargrads()
+            x_train_c = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
+            obj_train = vae(x_train_c)
+            training_obj += -obj_train.data
             
-            #training_obj /= (N/training_batch_size) # We want to average by the number of batches
+            training_obj /= (N/training_batch_size) # We want to average by the number of batches
 
             x_train_c = chainer.Variable(xp.asarray(X_train[0:70000,:], dtype=np.float32))
             obj_train = vae(x_train_c)
@@ -183,8 +185,8 @@ with cupy.cuda.Device(gpu_id):
             with open(train_log_file, 'a') as f:
                 f.write(str(training_obj) + '\n')
            # pdb.set_trace()
+            
             vae.cleargrads()
-
             # Testing results
             obj_test = vae(x_test_c)
             testing_obj = -obj_test.data
