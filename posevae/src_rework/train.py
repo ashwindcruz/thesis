@@ -149,7 +149,7 @@ with cupy.cuda.Device(gpu_id):
         training_batch_size = 70000
         X_train_mixed = np.random.permutation(X_train)
         for i in range(0, N/training_batch_size):
-            x = chainer.Variable(xp.asarray(X_train[J,:], dtype=np.float32))
+            x = chainer.Variable(xp.asarray(X_train_mixed[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
             obj = vae(x)
             obj.backward()
             opt.update()
