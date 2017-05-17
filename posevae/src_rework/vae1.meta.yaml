@@ -8,7 +8,7 @@
 --runtime: '300'
 --test: '70000'
 --time-print: '60'
---time-sample: '1020'
+--time-sample: '1200'
 --vae-samples: '1'
 --vis: null
 -o: vae1
