@@ -11,6 +11,8 @@ import matplotlib
 matplotlib.use('agg')
 from matplotlib import pyplot as plt
 
+import pdb
+
 trainingData = []
 with open('vae1_train_log.txt', 'r') as f:
 	f.readline()
@@ -28,3 +30,9 @@ with open('vae1_test_log.txt', 'r') as f:
 plt.plot(trainingData)
 plt.plot(testingData)
 plt.savefig('bugPlot.png')
+
+ratios = []
+for i in range(0,len(trainingData)):
+    ratios.append(trainingData[i]/testingData[i])
+
+pdb.set_trace()
