@@ -153,8 +153,7 @@ with cupy.cuda.Device(gpu_id):
             x = chainer.Variable(xp.asarray(X_train_mixed[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
             obj = vae(x)
             obj.backward()
-            opt.update()
-     
+            opt.update()     
             
         # One final batch to cover what couldn't be included in the loop
         vae.cleargrads()
