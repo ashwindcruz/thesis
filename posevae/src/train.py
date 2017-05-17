@@ -69,6 +69,10 @@ test_size = int(args['--test'])
 X_test = X[0:test_size,:]
 X_train = X[test_size:,:]
 
+<<<<<<< HEAD
+# To make things easier for debugging, split testing and training without mixing up indicees that we use
+=======
+>>>>>>> 5f4c4dedcc48587ac37fab94ca816f9c46b0b3c8
 N = X_train.shape[0]
 #N -= test_size
 
