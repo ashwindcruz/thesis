@@ -149,29 +149,34 @@ with cupy.cuda.Device(gpu_id):
         training_batch_size = 70000
         X_train_mixed = np.random.permutation(X_train)
         for i in range(0, N/training_batch_size):
+            vae.cleargrads()
             x = chainer.Variable(xp.asarray(X_train_mixed[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
             obj = vae(x)
             obj.backward()
             opt.update()
-            vae.zerograds()
+     
+            
         # One final batch to cover what couldn't be included in the loop
+        vae.cleargrads()
         x = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
         obj = vae(x)
         obj.backward()
         opt.update()
-        vae.zerograds()
-
+      
+        #pdb.set_trace()
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
         if((bi-1)%log_interval==0):
-                        
+                                
             # Training results
             training_obj = 0
             for i in range(0,N/training_batch_size):
+                vae.cleargrads()
                 x_train = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
                 obj = vae(x_train)
                 training_obj += -obj.data
             # One final smaller batch to cover what couldn't be captured in the loop
+            vae.cleargrads()
             x_train = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
             obj_train = vae(x_train)
             training_obj += -obj_train.data
