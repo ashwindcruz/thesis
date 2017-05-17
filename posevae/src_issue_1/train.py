@@ -71,6 +71,8 @@ X_train = X[test_size:,:]
 
 N = X_train.shape[0]
 
+print " Using %d samples for training and %d samples for testing"
+
 # Set up model
 nhidden = int(args['--nhidden'])
 nlatent = int(args['--nlatent'])
