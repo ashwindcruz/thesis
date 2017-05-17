@@ -64,7 +64,7 @@ d = X.shape[1]
 print "%d instances, %d dimensions" % (N, d)
 
 # Split data into training and testing data
-#X  = np.random.permutation(X) # To make things easier for debugging, split testing and training without mixing up indicees that we use
+X  = np.random.permutation(X)
 test_size = int(args['--test'])
 X_test = X[0:test_size,:]
 X_train = X[test_size:,:]
@@ -158,7 +158,7 @@ with cupy.cuda.Device(gpu_id):
             
         # One final batch to cover what couldn't be included in the loop
         vae.cleargrads()
-        x = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
+        x = chainer.Variable(xp.asarray(X_train_mixed[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
         obj = vae(x)
         obj.backward()
         opt.update()
