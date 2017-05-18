@@ -119,8 +119,8 @@ obj_count = 0
 
 with cupy.cuda.Device(gpu_id):
     # Set up variables that cover the entire training and testing sets
-    x_train = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
-    x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
+    #x_train = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
+    #x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
 
     # Set up the training and testing log files
     train_log_file = args['-o'] + '_train_log.txt'
@@ -147,8 +147,8 @@ with cupy.cuda.Device(gpu_id):
         total = bi * batchsize
 
         # Print status information
-        #if now >= print_at:
-        if True:
+        if now >= print_at:
+        #if True:
             print_at = now + print_every_s
             printcount += 1
             tput = float(period_bi * batchsize) / (now - period_start_at)
@@ -195,30 +195,50 @@ with cupy.cuda.Device(gpu_id):
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
         if((bi-1)%log_interval==0):
-                        
+            print('Calculating ELBO for whole set')                        
             # Training results
-            training_batch_size = 70000
+            training_batch_size = 256
             training_obj = 0
             for i in range(0,N/training_batch_size):
                 #print(i*training_batch_size)
                 #print((i+1)*training_batch_size)
-                x_train = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
-                obj = vae(x_train)
+                x = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
+                obj = vae(x)
                 training_obj += -obj.data
+                
+               
             # One final smaller batch to cover what couldn't be captured in the loop
-            x_train = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
-            obj = vae(x_train)
+            x = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
+            obj = vae(x)
             training_obj += -obj.data
             #pdb.set_trace()
             training_obj /= (N/training_batch_size) # We want to average by the number of batches
             with open(train_log_file, 'a') as f:
                 f.write(str(training_obj) + '\n')
             
-            # Testing results
-            obj = vae(x_test)
-            testing_obj = -obj.data
-            with open(test_log_file, 'a') as f:
+            testing_obj = 0
+            for i in range(0,N/training_batch_size):
+                #print(i*training_batch_size)
+                #print((i+1)*training_batch_size)
+                x = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
+                obj = vae(x)
+                testing_obj += -obj.data
+               
+              
+            # One final smaller batch to cover what couldn't be captured in the loop
+            x = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
+            obj = vae(x)
+            testing_obj += -obj.data
+            #pdb.set_trace()
+            testing_obj /= (N/training_batch_size) # We want to average by the number of batches
+            with open(train_log_file, 'a') as f:
                 f.write(str(testing_obj) + '\n')
+
+            # Testing results
+            #obj = vae(x_test)
+            #testing_obj = -obj.data
+            #with open(test_log_file, 'a') as f:
+            #    f.write(str(testing_obj) + '\n')
 
 # Save model
 if args['-o'] is not None:

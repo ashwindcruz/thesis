@@ -27,9 +27,11 @@ with open('vae1_test_log.txt', 'r') as f:
 		data = line.split()
 		testingData.append(float(data[0]))
 
-plt.plot(trainingData)
-plt.plot(testingData)
-plt.savefig('bugPlot.png')
+
+plt.plot(trainingData, label='train')
+plt.plot(testingData, label='test')
+plt.legend(loc='lower right')
+plt.savefig('bug_plot.png')
 
 #ratios = []
 #for i in range(0,len(trainingData)):
