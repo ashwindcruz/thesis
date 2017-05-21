@@ -201,32 +201,42 @@ with cupy.cuda.Device(gpu_id):
         # -1 is because we want to record the first set which has bi value of 1
         if((bi-1)%log_interval==0):
                         
+            whole_batch_size = 2048
+            
             # Training results
-            training_batch_size = 2048
             training_obj = 0
-            for i in range(0,N/training_batch_size):
-                #print(i*training_batch_size)
-                #print((i+1)*training_batch_size)
-                x_train = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
+            for i in range(0,N/whole_batch_size):
+                x_train = chainer.Variable(xp.asarray(X_train[i*whole_batch_size:(i+1)*whole_batch_size,:], dtype=np.float32))
                 obj = vae(x_train)
                 training_obj += -obj.data
             # One final smaller batch to cover what couldn't be captured in the loop
-            x_train = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
+            x_train = chainer.Variable(xp.asarray(X_train[(N/whole_batch_size)*whole_batch_size:,:], dtype=np.float32))
             obj_train = vae(x_train)
             training_obj += -obj_train.data
             
-            training_obj /= (N/training_batch_size) # We want to average by the number of batches
+            training_obj /= (N/whole_batch_size) # We want to average by the number of batches
             with open(train_log_file, 'a') as f:
                 f.write(str(training_obj) + '\n')
             
             vae.cleargrads()
 
             # Testing results
+            #testing_obj = 0
+            #for i in range(0,N/whole_batch_size):
+            #    x_test = chainer.Variable(xp.asarray(X_test[i*whole_batch_size:(i+1)*whole_batch_size,:], dtype=np.float32))
+            #    obj = vae(x_test)
+            #    testing_obj += -obj.data
+            # One final smaller batch to cover what couldn't be captured in the loop
+            #x_test = chainer.Variable(xp.asarray(X_test[(N/whole_batch_size)*whole_batch_size:,:], dtype=np.float32))
             #obj_test = vae(x_test)
             #testing_obj = -obj_test.data
-            #with open(test_log_file, 'a') as f:
+            
+            #testing_obj /= (N/whole_batch_size) # We want to average by the number of batches
+            #with open(train_log_file, 'a') as f:
             #    f.write(str(testing_obj) + '\n')
             
+            #vae.cleargrads()
+
 # Save model
 if args['-o'] is not None:
     modelmeta = args['-o'] + '.meta.yaml'

@@ -1,0 +1,16 @@
+--batchsize: '8192'
+--device: '0'
+--dump-every: '900'
+--help: false
+--house-degree: '1'
+--log-interval: '100'
+--nhidden: '256'
+--nlatent: '16'
+--runtime: '10800'
+--test: '70000'
+--time-print: '3600'
+--time-sample: '1800'
+--vae-samples: '1'
+--vis: null
+-o: vae_01_1_degrees
+<data.mat>: ../data/MSRC12-X-d60.mat

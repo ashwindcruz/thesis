@@ -40,7 +40,6 @@ class VAE(chainer.Chain):
             qlin3 = L.Linear(2*dim_hidden, dim_hidden),
             qlin_mu = L.Linear(2*dim_hidden, dim_latent),
             qlin_ln_var = L.Linear(2*dim_hidden, dim_latent),
-            qlin_h_vec_t = L.Linear(dim_latent, dim_latent),
             qlin_h_vec_0 = L.Linear(2*dim_hidden, dim_latent),
             # decoder
             plin0 = L.Linear(dim_latent, dim_hidden),
@@ -49,6 +48,8 @@ class VAE(chainer.Chain):
             plin3 = L.Linear(2*dim_hidden, dim_hidden),
             plin_mu = L.Linear(2*dim_hidden, dim_in),
             plin_ln_var = L.Linear(2*dim_hidden, dim_in),
+            # linear layer required for v_t of Householder flow transformations
+            qlin_h_vec_t = L.Linear(dim_latent, dim_latent),
         )
         self.num_zsamples = num_zsamples
         self.house_degree = house_degree
@@ -62,6 +63,8 @@ class VAE(chainer.Chain):
         self.qmu = self.qlin_mu(h)
         self.qln_var = self.qlin_ln_var(h)
         self.qh_vec_0 = self.qlin_h_vec_0(h)
+
+        return self.qmu, self.qln_var, self.qh_vec_0
 
     def house_transform(self,z):
         vec_t = self.qh_vec_0
@@ -82,21 +85,23 @@ class VAE(chainer.Chain):
         self.pmu = self.plin_mu(h)
         self.pln_var = self.plin_ln_var(h)
 
-    def __call__(self, x):
-        # Compute q(z|x)
-        self.encode(x)
+        return self.pmu, self.pln_var
 
-        self.kl = gaussian_kl_divergence(self.qmu, self.qln_var)
+    def __call__(self, x):
+        # Obtain parameters for q(z|x)
+        qmu, qln_var, qh_vec_0 = self.encode(x)
+
+        self.kl = gaussian_kl_divergence(qmu, qln_var)
         self.logp = 0
         for j in xrange(self.num_zsamples):
-            # z ~ q(z|x)
-            z = F.gaussian(self.qmu, self.qln_var)
+            # z_0 ~ q(z|x)
+            z_0 = F.gaussian(qmu, qln_var)
 
-            # Perform transformation, Equation (8)
-            z = self.house_transform(z)
+            # Perform Householder flow transformation, Equation (8)
+            z_T = self.house_transform(z_0)
 
-            # Compute p(x|z)
-            self.decode(z)
+            # Obtain parameters for p(x|z_T)
+            pmu, pln_var = self.decode(z_T)
 
             # Compute objective
             self.logp += gaussian_logp(x, self.pmu, self.pln_var)

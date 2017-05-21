@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python
 """
 Created on Tue May 16 21:16:27 2017
 
@@ -14,14 +14,14 @@ from matplotlib import pyplot as plt
 import pdb
 
 trainingData = []
-with open('vae1_train_log.txt', 'r') as f:
+with open('vae_debug_train_log.txt', 'r') as f:
 	f.readline()
 	for line in f: 
 		data = line.split()
 		trainingData.append(float(data[0]))
 
 testingData = []
-with open('vae1_test_log.txt', 'r') as f:
+with open('vae_debug_test_log.txt', 'r') as f:
 	f.readline()
 	for line in f: 
 		data = line.split()

@@ -1,14 +1,12 @@
 
-# Variational Autoencoder (VAE) Model for Human Pose
+# Variational Autoencoder (VAE) with Householder Flow Model for Human Pose
 
-Implementation of the variational autoencoder generative probabilistic model
+Implementation of the variational autoencoder with Householder flow generative probabilistic model
 as described in:
 
-- _Diederik P. Kingma_, and _Max Welling_. "Auto-encoding variational bayes."
-  arXiv preprint [arXiv:1312.6114](http://arxiv.org/abs/1312.6114) (2013).
-- _Danilo Jimenez Rezende_, _Shakir Mohamed_, and _Daan Wierstra_. "Stochastic
-  backpropagation and approximate inference in deep generative models."
-  arXiv preprint [arXiv:1401.4082](http://arxiv.org/abs/1401.4082) (2014).
+- Tomczak, J.M. and Welling, M., 2016. 
+	Improving Variational Auto-Encoders using Householder Flow.
+	[arXiv:1611.09630](https://arxiv.org/abs/1611.09630)
 
 ## Demo
 
