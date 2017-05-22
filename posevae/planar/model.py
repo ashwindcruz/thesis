@@ -5,6 +5,7 @@ import chainer.functions as F
 import chainer.links as L
 from chainer import cuda
 import cupy
+#import cuda.cupy as xp
 
 import pdb
 
@@ -30,6 +31,8 @@ def gaussian_logp(x, mu, ln_var):
 
     return logp_sum / batchsize
 
+xp = cuda.cupy
+
 class VAE(chainer.Chain):
     def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples, num_maps, batchsize):
         super(VAE, self).__init__(
@@ -51,7 +54,7 @@ class VAE(chainer.Chain):
         self.num_zsamples = num_zsamples
         # planar mappings
         #cuda.check_cuda_available()
-        xp = cuda.cupy
+        #xp = cuda.cupy
         self.planar_maps = []
         for i in range(num_maps):
             scaling = chainer.Variable(xp.random.rand(1,dim_latent).astype(xp.float32))
@@ -77,10 +80,22 @@ class VAE(chainer.Chain):
         self.z_trans.append(z)
 
         for i in range(len(self.planar_maps)):
-            h = F.relu(self.planar_maps[i]['linearity'](z))
-            pdb.set_trace()
-            #h = F.matmul(self.planar_maps[i]['scaling'], h)
+            
+            # Relu non-linearity
+            #h = F.relu(self.planar_maps[i]['linearity'](z))
+            #h.grad = xp.ones(h.shape, dtype=xp.float32)
+            #h.backward()
+            #h.cleargrads()
+            #pdb.set_trace()
+            
+            # Sigmoid non-linearity
+            h = F.sigmoid(self.planar_maps[i]['linearity'](z))
             h *= self.planar_maps[i]['scaling']
+
+            # Store the lodget-Jacobian terms for later ELBO calculation
+            h_derivative = F.sigmoid(self.planar_maps[i]['linearity'](z)) * (1 - F.sigmoid(self.planar_maps[i]['linearity'](z)))
+            self.planar_maps[i]['lodget_jacobian'] = h_derivative * self.planar_maps[i]['scaling']
+
             z += h
             self.z_trans.append(z)
         return z
@@ -99,7 +114,7 @@ class VAE(chainer.Chain):
     def __call__(self, x):
         # Compute q(z|x)
         qmu, qln_var = self.encode(x)
-        xp = cuda.cupy
+        #xp = cuda.cupy
         self.kl = gaussian_kl_divergence(qmu, qln_var)
         self.logp = 0
         for j in xrange(self.num_zsamples):
@@ -124,16 +139,11 @@ class VAE(chainer.Chain):
 
             # Compute second term of log q(z_K)
             trans_log = 0
-            #for k in range(len(self.z_trans)):
-                # You should cache the following from the flow transformations to avoid unneccessary overhead
-                #z_k = self.z_trans[k] 
-                #h = F.relu(self.planar_maps[k]['linearity'](z_k))
-                #h = chainer.Variable(xp.array())
-                #pdb.set_trace()
-                #h.backward()
-                #lodget_jacobian = z_k.grad * self.planar_maps[k]['linearity'].W
-                #lodget_jacobian_scaled = F.matmul(self.planar_maps[k]['scaling'], lodget_jacobian, transa=True)
-                #trans_log += math.log(1+lodget_jacobian_scaled)
+            for k in range(len(self.z_trans)):
+                # You should cache the following from the flow transformations to avoid unneccessary overhead 
+                lodget_jacobian_scaled = F.matmul(self.planar_maps[k]['scaling'], self.planar_maps[k]['lodget_jacobian'], transb=True)
+                pdb.set_trace()
+                trans_log += F.log(1+lodget_jacobian_scaled)
 
             #self.logp += gaussian_logp(x, self.pmu, self.pln_var)
 

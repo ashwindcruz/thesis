@@ -1,3 +1,4 @@
+--batch-limit: '1000'
 --batchsize: '8192'
 --device: '0'
 --dump-every: '900'
@@ -11,5 +12,5 @@
 --time-sample: '1200'
 --vae-samples: '1'
 --vis: null
--o: vae_debug
+-o: vae_debug_4196
 <data.mat>: ../data/MSRC12-X-d60.mat

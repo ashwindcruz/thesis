@@ -15,6 +15,7 @@ Options:
   -o <modelprefix>              Write trained model to given file.h5 [default: output].
   --vis <graph.ext>             Visualize computation graph.
   -b <batchsize>, --batchsize   Minibatch size [default: 100].
+  --batch-limit <batch-limit>   Total number of batches to process for training [default: -1]
   -t <runtime>, --runtime       Total training runtime in seconds [default: 7200].
   --vae-samples <zcount>        Number of samples in VAE z [default: 1]
   --nhidden <nhidden>           Number of hidden dimensions [default: 128].
@@ -46,6 +47,8 @@ import cupy
 
 import model
 import util
+
+np.random.seed(0) # For debugging purposes, this removes one factor of influece from our experiments
 
 import pdb
 
@@ -102,6 +105,9 @@ else:
 # Setup training parameters
 batchsize = int(args['--batchsize'])
 print "Using a batchsize of %d instances" % batchsize
+batch_limit = int(args['--batch-limit'])
+if batch_limit!=-1:
+    print "Limiting training to run for %d batches" % batch_limit
 
 start_at = time.time()
 period_start_at = start_at
@@ -145,6 +151,11 @@ with cupy.cuda.Device(gpu_id):
         # Check whether we exceeded training time
         if tpassed >= runtime:
             print "Training time of %ds reached, training finished." % runtime
+            break
+
+        # Check whether we exceeded the batch limit
+        if bi > batch_limit:
+            print " Batch limit of %d reached, training finished." % batch_limit
             break
 
         total = bi * batchsize
@@ -198,8 +209,7 @@ with cupy.cuda.Device(gpu_id):
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
         if((bi-1)%log_interval==0):
-            
-            training_batch_size = 8192
+            training_batch_size = 4096
 
             # Training results
             training_obj = 0
@@ -218,18 +228,23 @@ with cupy.cuda.Device(gpu_id):
             
             vae.cleargrads()
 
-            # Training results
-            testing_obj = 0
-            for i in range(0,N_test/training_batch_size):
-                x_test_c = chainer.Variable(xp.asarray(X_test[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
-                obj_test = vae(x_test_c)
-                testing_obj += -obj_test.data
-            # One final smaller batch to cover what couldn't be captured in the loop
-            x_test_c = chainer.Variable(xp.asarray(X_test[(N_test/training_batch_size)*training_batch_size:,:], dtype=np.float32))
-            obj_test = vae(x_test_c)
-            testing_obj += -obj_test.data
+            # Testing results
+            # testing_obj = 0
+            # for i in range(0,N_test/training_batch_size):
+            #     x_test_c = chainer.Variable(xp.asarray(X_test[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
+            #     obj_test = vae(x_test_c)
+            #     testing_obj += -obj_test.data
+            # # One final smaller batch to cover what couldn't be captured in the loop
+            # x_test_c = chainer.Variable(xp.asarray(X_test[(N_test/training_batch_size)*training_batch_size:,:], dtype=np.float32))
+            # obj_test = vae(x_test_c)
+            # testing_obj += -obj_test.data
             
-            testing_obj /= (N_test/training_batch_size) # We want to average by the number of batches
+            # testing_obj /= (N_test/training_batch_size) # We want to average by the number of batches
+
+            x_test_c = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
+            obj_test = vae(x_test_c)
+            testing_obj = -obj_test.data
+
             with open(test_log_file, 'a') as f:
                 f.write(str(testing_obj) + '\n')
             

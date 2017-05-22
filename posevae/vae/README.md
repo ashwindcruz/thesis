@@ -40,7 +40,7 @@ The following Python packages are required (Install using `pip install --user <p
 Example training run (GPU id 0):
 
 ```
-./train.py -g 0 -o vae1 -b 8192 -t 300 --nhidden 256 --time-print 10 \
+./train.py -g 0 -o vae1 -b 8192 --batch-limit 1000 -t 300 --nhidden 256 --time-print 10 \
     --time-sample 1200 --vae-samples 1 --log-interval 10 --test 70000 ../data/MSRC12-X-d60.mat
 ```
 

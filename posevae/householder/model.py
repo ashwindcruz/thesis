@@ -8,15 +8,15 @@ from chainer import cuda
 
 import pdb
 
-def gaussian_kl_divergence(mu, ln_var):
-    """D_{KL}(N(mu,var) | N(0,1))"""
-    batchsize = mu.data.shape[0]
-    S = F.exp(ln_var)
-    D = mu.data.size
+# def gaussian_kl_divergence(mu, ln_var):
+#    """D_{KL}(N(mu,var) | N(0,1))"""
+#    batchsize = mu.data.shape[0]
+#    S = F.exp(ln_var)
+#    D = mu.data.size
 
-    KL_sum = 0.5*(F.sum(S) + F.sum(mu*mu) - F.sum(ln_var) - D)
+#    KL_sum = 0.5*(F.sum(S) + F.sum(mu*mu) - F.sum(ln_var) - D)
 
-    return KL_sum / batchsize
+#    return KL_sum / batchsize
 
 def gaussian_logp(x, mu, ln_var):
     """log N(x ; mu, var)"""
@@ -29,6 +29,15 @@ def gaussian_logp(x, mu, ln_var):
         + D*math.log(2.0*math.pi))
 
     return logp_sum / batchsize
+
+def gaussian_kl_divergence(z_0, z_0_mu, z_0_ln_var, z_T):
+    """D_{KL}(q(z_0|x) || p(z_T))"""
+    logp_q = gaussian_logp(z_0, z_0_mu, z_0_ln_var)
+    logp_p = gaussian_logp(z_T, z_0_mu*0, z_0_ln_var/z_0_ln_var)
+    kl_loss = logp_q - logp_p
+
+    return kl_loss
+    #pdb.set_trace()
 
 class VAE(chainer.Chain):
     def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples=1, house_degree=1):
@@ -91,7 +100,7 @@ class VAE(chainer.Chain):
         # Obtain parameters for q(z|x)
         qmu, qln_var, qh_vec_0 = self.encode(x)
 
-        self.kl = gaussian_kl_divergence(qmu, qln_var)
+        self.kl = 0
         self.logp = 0
         for j in xrange(self.num_zsamples):
             # z_0 ~ q(z|x)
@@ -105,8 +114,10 @@ class VAE(chainer.Chain):
 
             # Compute objective
             self.logp += gaussian_logp(x, self.pmu, self.pln_var)
-
+            self.kl += gaussian_kl_divergence(z_0, qmu, qln_var, z_T)
+            
         self.logp /= self.num_zsamples
+        self.kl /= self.num_zsamples
         self.obj = self.kl - self.logp
 
         return self.obj
