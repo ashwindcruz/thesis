@@ -57,11 +57,13 @@ class VAE(chainer.Chain):
         #xp = cuda.cupy
         self.planar_maps = []
         for i in range(num_maps):
-            scaling = chainer.Variable(xp.random.rand(1,dim_latent).astype(xp.float32))
-            scaling = F.tile(scaling, (batchsize,1))
-            mapping = {'linearity': L.Linear(dim_latent, dim_latent, nobias=True), 'scaling': scaling }
+            #mapping = {'linearity': L.Linear(dim_latent, dim_latent, nobias=False), 'scaling': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False) }
+            mapping = {'linearity_W': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False), 'linearity_b': L.Bias(axis=0, shape=(1)), \
+             'scaling': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False) }
             self.planar_maps.append(mapping) 
-            self.planar_maps[i]['linearity'].to_gpu(0)
+            self.planar_maps[i]['linearity_W'].to_gpu(0)
+            self.planar_maps[i]['linearity_b'].to_gpu(0)
+            self.planar_maps[i]['scaling'].to_gpu(0)
 
             #pdb.set_trace()
     def encode(self, x):
@@ -72,7 +74,7 @@ class VAE(chainer.Chain):
 
         self.qmu = self.qlin_mu(h)
         self.qln_var = self.qlin_ln_var(h)
-
+        #pdb.set_trace()
         return self.qmu, self.qln_var
 
     def planar_flows(self,z):
@@ -89,13 +91,21 @@ class VAE(chainer.Chain):
             #pdb.set_trace()
             
             # Sigmoid non-linearity
-            h = F.sigmoid(self.planar_maps[i]['linearity'](z))
-            h *= self.planar_maps[i]['scaling']
+            h = self.planar_maps[i]['linearity_W'](z)
+            h = F.sum(h,axis=(1))
+            h = self.planar_maps[i]['linearity_b'](h)
+            h = F.sigmoid(h)
+            h_sigmoid = h
+            dim_latent = z.shape[1]
+            h = F.transpose(F.tile(h,(dim_latent,1)))
+            h = self.planar_maps[i]['scaling'](h)
 
             # Store the lodget-Jacobian terms for later ELBO calculation
-            h_derivative = F.sigmoid(self.planar_maps[i]['linearity'](z)) * (1 - F.sigmoid(self.planar_maps[i]['linearity'](z)))
-            self.planar_maps[i]['lodget_jacobian'] = h_derivative * self.planar_maps[i]['scaling']
+            #h_derivative = F.sigmoid(self.planar_maps[i]['linearity'](z)) * (1 - F.sigmoid(self.planar_maps[i]['linearity'](z)))
+            h_derivative = h_sigmoid*(1-h_sigmoid)
+            h_derivative = F.transpose(F.tile(h_derivative, (dim_latent,1)))    
 
+            self.planar_maps[i]['lodget_jacobian'] = self.planar_maps[i]['linearity_W'](h_derivative) #TODO: You need to have the weights of the linearity here
             z += h
             self.z_trans.append(z)
         return z
@@ -139,17 +149,21 @@ class VAE(chainer.Chain):
 
             # Compute second term of log q(z_K)
             trans_log = 0
-            for k in range(len(self.z_trans)):
-                # You should cache the following from the flow transformations to avoid unneccessary overhead 
-                lodget_jacobian_scaled = F.matmul(self.planar_maps[k]['scaling'], self.planar_maps[k]['lodget_jacobian'], transb=True)
-                pdb.set_trace()
+            for k in range(len(self.z_trans)-1):
+                #pdb.set_trace()
+                lodget_jacobian_scaled = self.planar_maps[k]['scaling'](self.planar_maps[k]['lodget_jacobian'])
+                lodget_jacobian_scaled = F.sum(lodget_jacobian_scaled, axis=1)
+                #pdb.set_trace()
                 trans_log += F.log(1+lodget_jacobian_scaled)
 
             #self.logp += gaussian_logp(x, self.pmu, self.pln_var)
 
         #self.logp /= self.num_zsamples
         #self.obj = self.kl - self.logp
+        batch_size = trans_log.shape[0]
+        trans_log = F.sum(trans_log, axis=0)/batch_size
         #pdb.set_trace()
-        self.obj = -(q_prior_log -joint_log)# - trans_log)
+        self.obj = -((q_prior_log -joint_log) - trans_log)
+        print(self.obj.data)
         return self.obj
 

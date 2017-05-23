@@ -123,6 +123,7 @@ obj_mean = 0.0
 obj_count = 0
 
 with cupy.cuda.Device(gpu_id):
+    xp.random.seed(0)
     # Set up variables that cover the entire training and testing sets
     x_train = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
     x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
@@ -157,7 +158,7 @@ with cupy.cuda.Device(gpu_id):
             print_at = now + print_every_s
             printcount += 1
             tput = float(period_bi * batchsize) / (now - period_start_at)
-            EO = obj_mean #/ obj_count
+            EO = obj_mean / obj_count
             print "   %.1fs of %.1fs  [%d] batch %d, E[obj] %.4f,  %.2f S/s, %d total" % \
                   (tpassed, runtime, printcount, bi, EO, tput, total)
 
