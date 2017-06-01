@@ -1,0 +1,26 @@
+Pre-Meeting
+
+Discussion Points
+
+Achieved: 
+1. Householder flow model implemented. 
+2. Standard error of the mean (SEM) now being recorded for all models .
+3. Timing information now being recorded for all models (encoding time, decoding time, backward pass). 
+4. Code has been restructured to add functionality such as specifying type of network and associated parameters and training/testing split.
+
+Assistance Required: 
+1. I am still encountering an issue whereby the ELBO plots for evaluation on the entire training set and entire testing set look too similar. This is the main hold-up preventing thorough experiments. 
+2. I believe that I have implemented the planar flow model correctly with regards to the main explanation in the paper but my ELBO blows up quickly before going to NaN. 
+   I think this may be related to a lack of constraints on the transformation as advised in the appendix. I will try to implement the constraints but would appreciate some advice in this area as well. 
+3. The Linear Links in Chainer are limited to using float32 data types which are causing new issues with the IWAE. These issues are cropping up now after restructuring the code to allow the SEM to be recorded. 
+   I will provide more details during the meeting about this and potential fixes that I could implement. I would appreciate advice on which of these fixes is the most appropriate. 
+
+Less critical: 
+1. I have translated the visualization code from Julia to Python but cannot obtain the images you have shown me. This may be due to an error in reading the dataset in or my translation. 
+2. I have read up regarding the infomax bound and will try to implement the appropriate methods to record this extra piece of information soon. 
+3. While I don't have thorough results yet, I would like to begin writing up my thesis. I would like to discuss what might be worth mentioning from a theoretical point of view as that is probably what I can
+   write up at this point. I want to write with the aim of getting this work published though I realize that that is not a certainty. 
+4. The poster session is approaching and I would like to discuss what might be worth presenting for that (I think this ties in to point 3). 
+5. I would like to publicize the git repo before the poster session. I'm waiting until I have fixed the ELBO training/testing issue. 
+
+

@@ -235,7 +235,7 @@ with cupy.cuda.Device(gpu_id):
         obj_mean_variable.backward()
         opt.update()
         backward_timing = time.time() - backward_timing
-
+        pdb.set_trace()
         # Log the information 
         with open(online_log_file, 'a') as f:
                 f.write(str(obj_mean_new) + ',' + str(obj_mean_new_sem) + ',' + str(timing_info[0]) + ',' + str(timing_info[1]) + ',' + str(backward_timing) + '\n')

@@ -144,5 +144,6 @@ class VAE(chainer.Chain):
         # pdb.set_trace()
         self.obj = -((q_prior_log -joint_log) - trans_log)
         #print(self.obj.data)
-        return self.obj
+        timing_dummy = np.array([0.,0.])
+        return self.obj, timing_dummy
 
