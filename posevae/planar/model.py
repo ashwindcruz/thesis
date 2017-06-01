@@ -100,18 +100,25 @@ class VAE(chainer.Chain):
 
     def __call__(self, x):
         # Compute q(z|x)
+        encoding_time = time.time()
         qmu, qln_var = self.encode(x)
-        
+        encoding_time = float(time.time() - encoding_time)
+
+        decoding_time_average = 0.
+
         self.logp = 0
         for j in xrange(self.num_zsamples):
             # Sample z ~ q(z_0|x)
             z_0 = F.gaussian(self.qmu, self.qln_var)
 
             # Perform planar flow mappings, Equation (10)
+            decoding_time = time.time()
             z_K = self.planar_flows(z_0)
 
             # Obtain parameters for p(x|z_K)
             pmu, pln_var =  self.decode(z_K)
+            decoding_time = time.time() - decoding_time
+            decoding_time_average += decoding_time
 
             # Compute log q(z_0)
             q_prior_log = gaussian_logp(z_0, qmu*0, qln_var/qln_var)
@@ -140,10 +147,10 @@ class VAE(chainer.Chain):
         #self.obj = self.kl - self.logp
         # batch_size = trans_log.shape[0]
         # trans_log = F.sum(trans_log, axis=0)/batch_size
-
+        decoding_time_average /= self.num_zsamples
         # pdb.set_trace()
         self.obj = -((q_prior_log -joint_log) - trans_log)
-        #print(self.obj.data)
-        timing_dummy = np.array([0.,0.])
-        return self.obj, timing_dummy
+        timing_info = np.array([encoding_time,decoding_time])
+        
+        return self.obj, timing_info
 

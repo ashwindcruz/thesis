@@ -70,7 +70,11 @@ class VAE(chainer.Chain):
 
     def __call__(self, x):
         # Obtain parameters for q(z|x)
+        encoding_time = time.time()
         qmu, qln_var, qh_vec_0 = self.encode(x)
+        encoding_time = float(time.time() - encoding_time)
+
+        decoding_time_average = 0.
 
         self.kl = 0
         self.logp = 0
@@ -79,10 +83,13 @@ class VAE(chainer.Chain):
             z_0 = F.gaussian(qmu, qln_var)
 
             # Perform Householder flow transformation, Equation (8)
+            decoding_time = time.time()
             z_T = self.house_transform(z_0)
 
             # Obtain parameters for p(x|z_T)
             pmu, pln_var = self.decode(z_T)
+            decoding_time = time.time() - decoding_time
+            decoding_time_average += decoding_time
 
             # Compute objective
             self.logp += gaussian_logp(x, self.pmu, self.pln_var)
@@ -92,5 +99,8 @@ class VAE(chainer.Chain):
         self.kl /= self.num_zsamples
         self.obj = self.kl - self.logp
 
-        return self.obj
+        decoding_time_average /= self.num_zsamples
+        timing_info = np.array([encoding_time,decoding_time])
+
+        return self.obj, timing_info
 

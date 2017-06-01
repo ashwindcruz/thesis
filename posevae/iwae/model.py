@@ -53,7 +53,12 @@ class VAE(chainer.Chain):
 
     def __call__(self, x):
         # Obtain parameters for q(z|x)
+        encoding_time = time.time()
         self.encode(x)
+        encoding_time = float(time.time() - encoding_time)
+
+        decoding_time_average = 0.
+
         xp = cuda.cupy
         self.importance_weights = 0
         self.w_holder = []
@@ -66,7 +71,10 @@ class VAE(chainer.Chain):
             encoder_log = gaussian_logp(z, self.qmu, self.qln_var)
             
             # Obtain parameters for p(x|z)
+            decoding_time = time.time()
             self.decode(z)
+            decoding_time = time.time() - decoding_time
+            decoding_time_average += decoding_time
 
             # Compute log p(x|z)
             decoder_log = gaussian_logp(x, self.pmu, self.pln_var)
@@ -91,8 +99,11 @@ class VAE(chainer.Chain):
         # self.obj = logsumexp(self.w_holder)
         # pdb.set_trace()
         #self.obj = chainer.Variable(self.obj)
-
+        decoding_time_average /= self.num_zsamples
         self.obj = logsumexp(self.w_holder)
+        
+        timing_info = np.array([encoding_time,decoding_time])
+
         # pdb.set_trace()
-        return -self.obj
+        return -self.obj, timing_info
 
