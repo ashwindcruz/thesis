@@ -15,6 +15,7 @@ Options:
   -o <modelprefix>              Write trained model to given file.h5 [default: output].
   --vis <graph.ext>             Visualize computation graph.
   -b <batchsize>, --batchsize   Minibatch size [default: 100].
+  --batch-limit <batch-limit>   Total number of batches to process for training [default: -1]
   -t <runtime>, --runtime       Total training runtime in seconds [default: 7200].
   --vae-samples <zcount>        Number of samples in VAE z [default: 1]
   --nhidden <nhidden>           Number of hidden dimensions [default: 128].
@@ -24,7 +25,6 @@ Options:
   --dump-every=<sec>            Dump model every so often [default: 900].
   --log-interval <log-interval> Number of batches before logging training and testing ELBO [default: 100].
   --test <test>                 Number of samples to set aside for testing [default:70000]
-  --nmap <nmap>                 Number of planar flow mappings to apply [default:1]
 
 The data.mat file must contain a (N,d) array of N instances, d dimensions
 each.
@@ -47,6 +47,8 @@ import cupy
 
 import model
 import util
+
+np.random.seed(0) # For debugging purposes, this removes one factor of influece from our experiments
 
 import pdb
 
@@ -71,6 +73,7 @@ X_test = X[0:test_size,:]
 X_train = X[test_size:,:]
 
 N = X_train.shape[0]
+N_test = X_test.shape[0]
 #N -= test_size
 
 # Set up model
@@ -80,17 +83,11 @@ nlatent = int(args['--nlatent'])
 print "%d latent VAE dimensions" % nlatent
 zcount = int(args['--vae-samples'])
 print "Using %d VAE samples per instance" % zcount
-nmap = int(args['--nmap'])
-print "Using %d planar flow mappings" % nmap
 
 log_interval = int(args['--log-interval'])
 print "Recording training and testing ELBO every %d batches" % log_interval
 
-# Setup training parameters
-batchsize = int(args['--batchsize'])
-print "Using a batchsize of %d instances" % batchsize
-
-vae = model.VAE(d, nhidden, nlatent, zcount, nmap)
+vae = model.VAE(d, nhidden, nlatent, zcount)
 opt = optimizers.Adam()
 opt.setup(vae)
 opt.add_hook(chainer.optimizer.GradientClipping(4.0))
@@ -98,12 +95,19 @@ opt.add_hook(chainer.optimizer.GradientClipping(4.0))
 # Move to GPU
 gpu_id = int(args['--device'])
 if gpu_id >= 0:
-    cuda.check_cuda_available() # comment out to surpress an unncessarry warning
+    cuda.check_cuda_available()
 if gpu_id >= 0:
     xp = cuda.cupy
     vae.to_gpu(gpu_id)
 else:
     xp = np
+
+# Setup training parameters
+batchsize = int(args['--batchsize'])
+print "Using a batchsize of %d instances" % batchsize
+batch_limit = int(args['--batch-limit'])
+if batch_limit!=-1:
+    print "Limiting training to run for %d batches" % batch_limit
 
 start_at = time.time()
 period_start_at = start_at
@@ -123,7 +127,6 @@ obj_mean = 0.0
 obj_count = 0
 
 with cupy.cuda.Device(gpu_id):
-    xp.random.seed(0)
     # Set up variables that cover the entire training and testing sets
     x_train = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
     x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
@@ -150,6 +153,11 @@ with cupy.cuda.Device(gpu_id):
             print "Training time of %ds reached, training finished." % runtime
             break
 
+        # Check whether we exceeded the batch limit
+        if bi > batch_limit:
+            print " Batch limit of %d reached, training finished." % batch_limit
+            break
+
         total = bi * batchsize
 
         # Print status information
@@ -158,7 +166,8 @@ with cupy.cuda.Device(gpu_id):
             print_at = now + print_every_s
             printcount += 1
             tput = float(period_bi * batchsize) / (now - period_start_at)
-            EO = obj_mean / obj_count
+            EO = obj_mean #/ obj_count
+            #pdb.set_trace()
             print "   %.1fs of %.1fs  [%d] batch %d, E[obj] %.4f,  %.2f S/s, %d total" % \
                   (tpassed, runtime, printcount, bi, EO, tput, total)
 
@@ -174,7 +183,8 @@ with cupy.cuda.Device(gpu_id):
         x = chainer.Variable(xp.asarray(X_train[J,:], dtype=np.float32))
 
         obj = vae(x)
-        obj_mean += obj.data
+        #pdb.set_trace()
+        obj_mean += float((-F.sum(obj)/batchsize).data) #obj.data.mean()
         obj_count += 1
 
         # (Optionally:) visualize computation graph
@@ -184,7 +194,8 @@ with cupy.cuda.Device(gpu_id):
             util.print_compute_graph(args['--vis'], g)
 
         # Update model parameters
-        obj.backward()
+        obj_mean_var = -F.sum(obj)/batchsize # For some reason F.mean is not being recognized. Perhaps it is not included in this particular version of Chainer. 
+        obj_mean_var.backward()
         opt.update()
 
         # Sample a set of poses
@@ -201,43 +212,57 @@ with cupy.cuda.Device(gpu_id):
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
         if((bi-1)%log_interval==0):
-                        
-            whole_batch_size = 8192
+            training_batch_size = 8192
             
             # Training results
-            training_obj = 0
-            for i in range(0,N/whole_batch_size):
-                x_train = chainer.Variable(xp.asarray(X_train[i*whole_batch_size:(i+1)*whole_batch_size,:], dtype=np.float32))
-                obj = vae(x_train)
-                training_obj += -obj.data
+            training_ELBO = xp.zeros([N])
+            for i in range(0,N/training_batch_size):
+                x_train_c = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
+                obj_train = vae(x_train_c)
+                #training_obj += -obj_train.data
+                training_ELBO[i*training_batch_size:(i+1)*training_batch_size] = obj_train.data
             # One final smaller batch to cover what couldn't be captured in the loop
-            #x_train = chainer.Variable(xp.asarray(X_train[(N/whole_batch_size)*whole_batch_size:,:], dtype=np.float32))
-            #obj_train = vae(x_train)
+            x_train_c = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
+            obj_train = vae(x_train_c)
             #training_obj += -obj_train.data
-            
-            training_obj /= ((N/whole_batch_size)-1) # We want to average by the number of batches
+            training_ELBO[(N/training_batch_size)*training_batch_size:] = obj_train.data 
+
+            # Calculate the average and the SEM of the training ELBOs
+            training_obj = -training_ELBO.mean()
+            training_std = training_ELBO.std()
+            training_sem = training_std/xp.sqrt(N)
+
             with open(train_log_file, 'a') as f:
-                f.write(str(training_obj) + '\n')
+                f.write(str(training_obj) + ',' + str(training_sem) + '\n')
             
             vae.cleargrads()
 
             # Testing results
-            #testing_obj = 0
-            #for i in range(0,N/whole_batch_size):
-            #    x_test = chainer.Variable(xp.asarray(X_test[i*whole_batch_size:(i+1)*whole_batch_size,:], dtype=np.float32))
-            #    obj = vae(x_test)
-            #    testing_obj += -obj.data
-            # One final smaller batch to cover what couldn't be captured in the loop
-            #x_test = chainer.Variable(xp.asarray(X_test[(N/whole_batch_size)*whole_batch_size:,:], dtype=np.float32))
-            #obj_test = vae(x_test)
-            #testing_obj = -obj_test.data
+            # testing_obj = 0
+            # for i in range(0,N_test/training_batch_size):
+            #     x_test_c = chainer.Variable(xp.asarray(X_test[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
+            #     obj_test = vae(x_test_c)
+            #     testing_obj += -obj_test.data
+            # # One final smaller batch to cover what couldn't be captured in the loop
+            # x_test_c = chainer.Variable(xp.asarray(X_test[(N_test/training_batch_size)*training_batch_size:,:], dtype=np.float32))
+            # obj_test = vae(x_test_c)
+            # testing_obj += -obj_test.data
             
-            #testing_obj /= (N/whole_batch_size) # We want to average by the number of batches
-            #with open(train_log_file, 'a') as f:
-            #    f.write(str(testing_obj) + '\n')
-            
-            #vae.cleargrads()
+            # testing_obj /= (N_test/training_batch_size) # We want to average by the number of batches
 
+            testing_ELBO = xp.zeros([N_test])
+            x_test_c = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
+            obj_test = vae(x_test_c)
+            testing_ELBO = obj_test.data
+
+            # Calculate the average and SEM of the testing ELBOs
+            testing_obj = -testing_ELBO.mean()
+            testing_std = testing_ELBO.std()
+            testing_sem = testing_std/xp.sqrt(N_test)
+
+            with open(test_log_file, 'a') as f:
+                f.write(str(testing_obj) + ',' + str(testing_sem) +  '\n')
+            
 # Save model
 if args['-o'] is not None:
     modelmeta = args['-o'] + '.meta.yaml'

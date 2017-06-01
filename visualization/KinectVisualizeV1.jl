@@ -57,6 +57,7 @@ function visualize_skeleton(xf; title="", fsize=6)
 			S[si,1,1] = X[1, nui_skeleton_conn[bi][1]]
 			S[si,1,2] = X[3, nui_skeleton_conn[bi][1]]
 			S[si,1,3] = X[2, nui_skeleton_conn[bi][1]]
+			
 			S[si,2,1] = X[1, nui_skeleton_conn[bi][2]]
 			S[si,2,2] = X[3, nui_skeleton_conn[bi][2]]
 			S[si,2,3] = X[2, nui_skeleton_conn[bi][2]]

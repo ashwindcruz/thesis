@@ -1,40 +1,17 @@
-#import numpy as np
+import pdb
+
+import numpy as np
 import math
 import chainer
 import chainer.functions as F
 import chainer.links as L
 from chainer import cuda
-import cupy
-#import cuda.cupy as xp
 
-import pdb
-
-def gaussian_kl_divergence(mu, ln_var):
-    """D_{KL}(N(mu,var) | N(0,1))"""
-    batchsize = mu.data.shape[0]
-    S = F.exp(ln_var)
-    D = mu.data.size
-
-    KL_sum = 0.5*(F.sum(S) + F.sum(mu*mu) - F.sum(ln_var) - D)
-
-    return KL_sum / batchsize
-
-def gaussian_logp(x, mu, ln_var):
-    """log N(x ; mu, var)"""
-    batchsize = mu.data.shape[0]
-    D = x.data.size
-    S = F.exp(ln_var)
-    xc = x - mu
-
-    logp_sum = -0.5*(F.sum((xc*xc) / S) + F.sum(ln_var)
-        + D*math.log(2.0*math.pi))
-
-    return logp_sum / batchsize
-
-xp = cuda.cupy
+from util import gaussian_logp
+#xp = cuda.cupy
 
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples, num_maps, batchsize):
+    def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples, num_maps):
         super(VAE, self).__init__(
             # encoder
             qlin0 = L.Linear(dim_in, dim_hidden),
@@ -124,8 +101,7 @@ class VAE(chainer.Chain):
     def __call__(self, x):
         # Compute q(z|x)
         qmu, qln_var = self.encode(x)
-        #xp = cuda.cupy
-        self.kl = gaussian_kl_divergence(qmu, qln_var)
+        
         self.logp = 0
         for j in xrange(self.num_zsamples):
             # Sample z ~ q(z_0|x)
@@ -140,11 +116,13 @@ class VAE(chainer.Chain):
             # Compute log q(z_0)
             q_prior_log = gaussian_logp(z_0, qmu*0, qln_var/qln_var)
 
-            # Compute log p(x,z_K)
+            
             # Compute log p(x|z_K)
             decoder_log = gaussian_logp(x, pmu, pln_var)
             # Compute log p(z_K)
             p_prior_log = gaussian_logp(z_K, qmu*0, qln_var/qln_var)
+
+            # Compute log p(x,z_K) which is log p(x|z_K) + log p(z_K)
             joint_log = decoder_log + p_prior_log
 
             # Compute second term of log q(z_K)
@@ -160,10 +138,11 @@ class VAE(chainer.Chain):
 
         #self.logp /= self.num_zsamples
         #self.obj = self.kl - self.logp
-        batch_size = trans_log.shape[0]
-        trans_log = F.sum(trans_log, axis=0)/batch_size
-        #pdb.set_trace()
+        # batch_size = trans_log.shape[0]
+        # trans_log = F.sum(trans_log, axis=0)/batch_size
+
+        # pdb.set_trace()
         self.obj = -((q_prior_log -joint_log) - trans_log)
-        print(self.obj.data)
+        #print(self.obj.data)
         return self.obj
 

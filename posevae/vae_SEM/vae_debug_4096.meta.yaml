@@ -1,0 +1,16 @@
+--batch-limit: '50000'
+--batchsize: '8192'
+--device: '0'
+--dump-every: '900'
+--help: false
+--log-interval: '100'
+--nhidden: '256'
+--nlatent: '16'
+--runtime: '300'
+--test: '8192'
+--time-print: '1'
+--time-sample: '1200'
+--vae-samples: '1'
+--vis: null
+-o: vae_debug_4096
+<data.mat>: ../data/MSRC12-X-d60.mat

@@ -1,4 +1,4 @@
 #!/bin/bash
 
-./train.py -g 0 -o vae1 -b 8192 -t 300 --nhidden 256 --time-print 10 --time-sample 120 --vae-samples 1 --log-interval 10 --test 70000 --nmap 1 ../data/MSRC12-X-d60.mat
+./train.py -g 0 -o vae1 -b 8192 -t 300 --nhidden 256 --time-print 10 --time-sample 120 --vae-samples 1 --log-interval 10 --test 70000 --nmap 1 --vis debug.pdf ../data/MSRC12-X-d60.mat
 
