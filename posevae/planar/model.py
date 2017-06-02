@@ -2,6 +2,8 @@ import pdb
 
 import numpy as np
 import math
+import time
+
 import chainer
 import chainer.functions as F
 import chainer.links as L

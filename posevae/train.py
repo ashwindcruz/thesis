@@ -160,8 +160,8 @@ if not os.path.exists(directory):
 
 with cupy.cuda.Device(gpu_id):
     # Set up variables that cover the entire training and testing sets
-    x_train = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
-    x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
+    # x_train = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
+    # x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
     
     # Set up the training and testing log files
     online_log_file = directory + '/' + args['-o'] + '_online_log.txt' 
@@ -235,7 +235,7 @@ with cupy.cuda.Device(gpu_id):
         obj_mean_variable.backward()
         opt.update()
         backward_timing = time.time() - backward_timing
-        pdb.set_trace()
+        # pdb.set_trace()
         # Log the information 
         with open(online_log_file, 'a') as f:
                 f.write(str(obj_mean_new) + ',' + str(obj_mean_new_sem) + ',' + str(timing_info[0]) + ',' + str(timing_info[1]) + ',' + str(backward_timing) + '\n')
@@ -268,7 +268,7 @@ with cupy.cuda.Device(gpu_id):
             # One final smaller batch to cover what couldn't be captured in the loop
             x_train_c = chainer.Variable(xp.asarray(X_train[(N/eval_batch_size)*eval_batch_size:,:], dtype=np.float32), volatile='ON')
             obj_train, obj_train_timing = vae(x_train_c)
-                
+            # pdb.set_trace()    
             training_ELBO[(N/eval_batch_size)*eval_batch_size:] = obj_train.data 
             # Don't use the latest information because the batchsize could be wildly different.
             # Also, the division will yield the rounded down integer which is why we don't have a -1
@@ -296,7 +296,7 @@ with cupy.cuda.Device(gpu_id):
             # One final smaller batch to cover what couldn't be captured in the loop
             x_test_c = chainer.Variable(xp.asarray(X_test[(N_test/eval_batch_size)*eval_batch_size:,:], dtype=np.float32), volatile='ON')
             obj_test, obj_test_timing = vae(x_test_c)
-        
+            # pdb.set_trace()
             testing_ELBO[(N_test/eval_batch_size)*eval_batch_size:] = obj_test.data 
             # Don't use the latest information because the batchsize could be wildly different.
             # Also, the division will yield the rounded down integer which is why we don't have a -1
