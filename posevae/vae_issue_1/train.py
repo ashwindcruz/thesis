@@ -1,0 +1,194 @@
+#!/usr/bin/env python
+
+"""Train variational autoencoder (VAE) model for pose data.
+
+Author: Sebastian Nowozin <senowozi@microsoft.com>
+Date: 5th August 2016
+
+Usage:
+  train.py (-h | --help)
+  train.py [options] <data.mat>
+
+Options:
+  -h --help                     Show this help screen.
+  -g <device>, --device         GPU id to train model on.  Use -1 for CPU [default: -1].
+  -o <modelprefix>              Write trained model to given file.h5 [default: output].
+  --vis <graph.ext>             Visualize computation graph.
+  -b <batchsize>, --batchsize   Minibatch size [default: 100].
+  -t <runtime>, --runtime       Total training runtime in seconds [default: 7200].
+  --vae-samples <zcount>        Number of samples in VAE z [default: 1]
+  --nhidden <nhidden>           Number of hidden dimensions [default: 128].
+  --nlatent <nz>                Number of latent VAE dimensions [default: 16].
+  --time-print=<sec>            Print status every so often [default: 60].
+  --time-sample=<sec>           Print status every so often [default: 600].
+  --dump-every=<sec>            Dump model every so often [default: 900].
+  --log-interval <log-interval> Number of batches before logging training and testing ELBO [default: 100].
+  --test <test>                 Number of samples to set aside for testing [default:70000]
+
+The data.mat file must contain a (N,d) array of N instances, d dimensions
+each.
+This file is only for debugging Issue 1. 
+"""
+
+import time
+import yaml
+import numpy as np
+import h5py
+import scipy.io as sio
+from docopt import docopt
+
+import chainer
+from chainer import serializers
+from chainer import optimizers
+from chainer import cuda
+from chainer import computational_graph
+import chainer.functions as F
+import cupy
+
+import model
+import util
+
+import pdb
+
+args = docopt(__doc__, version='train 0.1')
+print(args)
+
+print "Using chainer version %s" % chainer.__version__
+
+# Loading training data
+data_mat = h5py.File(args['<data.mat>'], 'r')
+X = data_mat.get('X')
+X = np.array(X)
+X = X.transpose()
+N = X.shape[0]
+d = X.shape[1]
+print "%d instances, %d dimensions" % (N, d)
+
+# Split data into training and testing data
+test_size = int(args['--test'])
+X_test = X[0:test_size,:]
+X_train = X[test_size:,:]
+
+N = X_train.shape[0]
+
+print " Using %d samples for training and %d samples for testing"
+
+# Set up model
+nhidden = int(args['--nhidden'])
+nlatent = int(args['--nlatent'])
+zcount = int(args['--vae-samples'])
+log_interval = int(args['--log-interval'])
+
+vae = model.VAE(d, nhidden, nlatent, zcount)
+opt = optimizers.Adam()
+opt.setup(vae)
+opt.add_hook(chainer.optimizer.GradientClipping(4.0))
+
+# Move to GPU
+gpu_id = int(args['--device'])
+if gpu_id >= 0:
+    cuda.check_cuda_available()
+if gpu_id >= 0:
+    xp = cuda.cupy
+    vae.to_gpu(gpu_id)
+else:
+    xp = np
+
+# Setup training parameters
+batchsize = int(args['--batchsize'])
+
+start_at = time.time()
+period_start_at = start_at
+period_bi = 0
+runtime = int(args['--runtime'])
+
+print_every_s = float(args['--time-print'])
+print_at = start_at + print_every_s
+
+sample_every_s = float(args['--time-sample'])
+sample_at = start_at + sample_every_s
+
+bi = 0  # batch index
+printcount = 0
+
+obj_mean = 0.0
+obj_count = 0
+
+# Set up the training and testing log files
+train_log_file = args['-o'] + '_train_log.txt'
+test_log_file  = args['-o'] +  '_test_log.txt' 
+
+with open(train_log_file, 'w+') as f:
+    f.write('Training Log \n')
+
+with open(test_log_file, 'w+') as f:
+    f.write('Testing Log \n')
+
+with cupy.cuda.Device(gpu_id):
+   # Set up variables that cover the entire training and testing sets
+    #x_train_c = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
+    x_test_c = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
+        
+    while True:
+        bi += 1
+        period_bi += 1
+
+        now = time.time()
+        tpassed = now - start_at
+
+        # Check whether we exceeded training time
+        if tpassed >= runtime:
+            print "Training time of %ds reached, training finished." % runtime
+            break
+
+        total = bi * batchsize
+
+        vae.zerograds()
+
+        # Build training batch (random sampling without replacement)
+        J = np.sort(np.random.choice(N, batchsize, replace=False))
+        x = chainer.Variable(xp.asarray(X_train[J,:], dtype=np.float32))
+
+        obj = vae(x)
+        obj_mean += obj.data
+        obj_count += 1
+
+        # Update model parameters
+        obj.backward()
+        opt.update()
+
+        # Get the ELBO for the training and testing set and record it
+        # -1 is because we want to record the first set which has bi value of 1
+        if((bi-1)%log_interval==0):
+                        
+            # Training results
+            #training_batch_size = 70000
+            training_obj = 0
+
+            for i in range(0,N/training_batch_size):
+                vae.cleargrads()
+                x_train_c = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
+                obj_train = vae(x_train_c)
+                training_obj += -obj_train.data
+
+            # One final smaller batch to cover what couldn't be captured in the loop
+            vae.cleargrads()
+            x_train_c = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
+            obj_train = vae(x_train_c)
+            training_obj += -obj_train.data
+            
+            training_obj /= (N/training_batch_size) # We want to average by the number of batches
+
+            x_train_c = chainer.Variable(xp.asarray(X_train[0:70000,:], dtype=np.float32))
+            obj_train = vae(x_train_c)
+            training_obj = -obj_train.data
+            with open(train_log_file, 'a') as f:
+                f.write(str(training_obj) + '\n')
+           # pdb.set_trace()
+            
+            vae.cleargrads()
+            # Testing results
+            obj_test = vae(x_test_c)
+            testing_obj = -obj_test.data
+            with open(test_log_file, 'a') as f:
+                f.write(str(testing_obj) + '\n')
