@@ -152,11 +152,9 @@ printcount = 0
 obj_mean = 0.0
 obj_count = 0
 
-<<<<<<< HEAD
-=======
+
 counter = 0
-pdb.set_trace()
->>>>>>> 3d1965b... Fixing repo
+
 # Folder where results will be saved
 directory = model_type + '_' + args['-o'] + '_results'
 if not os.path.exists(directory):
@@ -219,42 +217,6 @@ with cupy.cuda.Device(gpu_id):
             obj_count = 0
             period_bi = 0
 
-<<<<<<< HEAD
-        vae.zerograds()
-
-        # Build training batch (random sampling without replacement)
-        J = np.sort(np.random.choice(N, batch_size, replace=False))
-        x = chainer.Variable(xp.asarray(X_train[J,:], dtype=np.float32))
-        
-        obj, timing_info = vae(x)
-
-        obj_mean_new = float((F.sum(obj)/batch_size).data)
-        obj_mean_new_sem = obj.data.std()/xp.sqrt(batch_size)
-        
-
-        # Update model parameters, if the average objective is valid
-        # if(not np.isinf(obj_mean_new)):
-        obj_mean += obj_mean_new 
-        obj_count += 1
-        obj_mean_variable = F.sum(obj)/batch_size # For some reason F.mean is not being recognized. Perhaps it is not included in this particular version of Chainer. 
-        backward_timing = time.time()
-        obj_mean_variable.backward()
-        opt.update()
-        backward_timing = time.time() - backward_timing
-        # pdb.set_trace()
-        # Log the information 
-        with open(online_log_file, 'a') as f:
-                f.write(str(obj_mean_new) + ',' + str(obj_mean_new_sem) + ',' + str(timing_info[0]) + ',' + str(timing_info[1]) + ',' + str(backward_timing) + '\n')
-
-
-            # EO = obj_mean / obj_count
-            
-            #pdb.set_trace()
-            # print "   %.1fs of %.1fs batch %d, E[obj] %.4f,  %d total" % \
-                  # (tpassed, runtime, bi, EO, total)
-        # else:
-        #     print('Unused batch due to occurence of inf.\n')
-=======
         X_online = np.random.permutation(X_train)
         vae, obj_mean = util.evaluate_dataset(vae, X_online, batch_size, online_log_file, True, opt)
       
@@ -266,7 +228,6 @@ with cupy.cuda.Device(gpu_id):
                 with open(modelmeta, 'w') as outfile:
                     outfile.write(yaml.dump(dict(args), default_flow_style=False))
             break
->>>>>>> 3d1965b... Fixing repo
 
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
