@@ -1,0 +1,13 @@
+--batchsize: '8192'
+--device: '0'
+--dump-every: '900'
+--help: false
+--nhidden: '128'
+--nlatent: '2'
+--runtime: '1200'
+--time-print: '60'
+--time-sample: '60'
+--vae-samples: '1'
+--vis: null
+-o: debug
+<data.mat>: data.mat
