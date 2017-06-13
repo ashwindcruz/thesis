@@ -11,6 +11,8 @@ from chainer.cuda import cupy
 import chainer.functions as F
 #import cuda
 
+xp = cuda.cupy
+
 def print_compute_graph(file, g):
     format = file.split('.')[-1]
     cmd = 'dot -T%s -o %s'%(format,file)
@@ -54,7 +56,7 @@ def logsumexp(collected):
 # Using streaming method proposed from:
 # http://www.nowozin.net/sebastian/blog/streaming-log-sum-exp-computation.html
   # pdb.set_trace()
-  xp = cuda.cupy
+  # xp = cuda.cupy
   # batch_size = collected[0].shape[0]
   # minimum = collected[0]#np.inf*chainer.Variable(xp.ones([batch_size],dtype='float32'))
   # for var in collected:
@@ -127,4 +129,32 @@ def logsumexp(collected):
 #     return(minimum + F.log(summedVal))
 
 
+# Function to evaluate average ELBO, SEM and timing for a particular dataset. 
+def evaluate_dataset(vae_model, dataset, batch_size, log_file):
+  N = dataset.shape[0]
+  elbo = xp.zeros([N])
+  timing_info = np.array([0.,0.])
 
+  for i in range(0,N/batch_size):
+    data_subset = chainer.Variable(xp.asarray(dataset[i*batch_size:(i+1)*batch_size,:], dtype=np.float32), volatile='ON')
+    obj = vae_model(data_subset)
+
+    elbo[i*batch_size:(i+1)*batch_size] = vae_model.obj_batch.data
+    timing_info += vae_model.timing_info
+
+  # One final smaller batch to cover what couldn't be captured in the loop
+  data_subset = chainer.Variable(xp.asarray(dataset[(N/batch_size)*batch_size:,:], dtype=np.float32), volatile='ON')
+  obj = vae_model(data_subset)
+  elbo[(N/batch_size)*batch_size:] = vae_model.obj_batch.data
+
+  # Don't use the latest timing information as it is a different batch size. Think more about this. 
+  # TODO
+  timing_info /= (N/batch_size)
+
+  # Calculate the average ELBO and the SEM
+  obj_ave = elbo.mean()
+  obj_std = elbo.std()
+  obj_sem = obj_std/xp.sqrt(N)
+
+  with open(log_file, 'a') as f:
+    f.write(str(obj_ave) + ',' + str(obj_sem) + ',' + str(timing_info[0]) + ',' + str(timing_info[1]) + '\n')

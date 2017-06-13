@@ -152,6 +152,11 @@ printcount = 0
 obj_mean = 0.0
 obj_count = 0
 
+<<<<<<< HEAD
+=======
+counter = 0
+pdb.set_trace()
+>>>>>>> 3d1965b... Fixing repo
 # Folder where results will be saved
 directory = model_type + '_' + args['-o'] + '_results'
 if not os.path.exists(directory):
@@ -214,6 +219,7 @@ with cupy.cuda.Device(gpu_id):
             obj_count = 0
             period_bi = 0
 
+<<<<<<< HEAD
         vae.zerograds()
 
         # Build training batch (random sampling without replacement)
@@ -248,6 +254,19 @@ with cupy.cuda.Device(gpu_id):
                   # (tpassed, runtime, bi, EO, total)
         # else:
         #     print('Unused batch due to occurence of inf.\n')
+=======
+        X_online = np.random.permutation(X_train)
+        vae, obj_mean = util.evaluate_dataset(vae, X_online, batch_size, online_log_file, True, opt)
+      
+        # If the model breaks, terminate training early
+        if(math.isnan(vae.obj.data)):
+            if args['-o'] is not None:
+                modelmeta = directory + '/' + 'pre_break_meta.yaml'
+                print "Writing model metadata to '%s' ..." % (modelmeta)
+                with open(modelmeta, 'w') as outfile:
+                    outfile.write(yaml.dump(dict(args), default_flow_style=False))
+            break
+>>>>>>> 3d1965b... Fixing repo
 
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
@@ -312,7 +331,12 @@ with cupy.cuda.Device(gpu_id):
 
             print('##################### Saving Model Checkpoint     #####################')
             # Save model
+<<<<<<< HEAD
             if args['-o'] is not None:
+=======
+            if ((args['-o'] is not None) and ((bi-1)%(log_interval*100)==0)): #Additional *5 term because we don't want a checkpoint every log point
+                #print('##################### Saving Model Checkpoint     #####################')
+>>>>>>> 3d1965b... Fixing repo
                 batch_number = str(bi).zfill(6)
                 modelfile = directory + '/' + args['-o'] + '_' + batch_number + '.h5'
                 print "Writing model checkpoint to '%s' ..." % (modelfile)

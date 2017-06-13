@@ -167,6 +167,7 @@ with cupy.cuda.Device(gpu_id):
             printcount += 1
             tput = float(period_bi * batchsize) / (now - period_start_at)
             EO = obj_mean #/ obj_count
+            #pdb.set_trace()
             print "   %.1fs of %.1fs  [%d] batch %d, E[obj] %.4f,  %.2f S/s, %d total" % \
                   (tpassed, runtime, printcount, bi, EO, tput, total)
 
@@ -182,7 +183,8 @@ with cupy.cuda.Device(gpu_id):
         x = chainer.Variable(xp.asarray(X_train[J,:], dtype=np.float32))
 
         obj = vae(x)
-        obj_mean += obj.data
+        #pdb.set_trace()
+        obj_mean += float((-F.sum(obj)/batchsize).data) #obj.data.mean()
         obj_count += 1
 
         # (Optionally:) visualize computation graph
@@ -192,7 +194,8 @@ with cupy.cuda.Device(gpu_id):
             util.print_compute_graph(args['--vis'], g)
 
         # Update model parameters
-        obj.backward()
+        obj_mean_var = -F.sum(obj)/batchsize # For some reason F.mean is not being recognized. Perhaps it is not included in this particular version of Chainer. 
+        obj_mean_var.backward()
         opt.update()
 
         # Sample a set of poses
@@ -209,22 +212,28 @@ with cupy.cuda.Device(gpu_id):
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
         if((bi-1)%log_interval==0):
-            training_batch_size = 4096
-
+            training_batch_size = 8192
+            
             # Training results
-            training_obj = 0
+            training_ELBO = xp.zeros([N])
             for i in range(0,N/training_batch_size):
                 x_train_c = chainer.Variable(xp.asarray(X_train[i*training_batch_size:(i+1)*training_batch_size,:], dtype=np.float32))
                 obj_train = vae(x_train_c)
-                training_obj += -obj_train.data
+                #training_obj += -obj_train.data
+                training_ELBO[i*training_batch_size:(i+1)*training_batch_size] = obj_train.data
             # One final smaller batch to cover what couldn't be captured in the loop
             x_train_c = chainer.Variable(xp.asarray(X_train[(N/training_batch_size)*training_batch_size:,:], dtype=np.float32))
             obj_train = vae(x_train_c)
-            training_obj += -obj_train.data
-            
-            training_obj /= (N/training_batch_size) # We want to average by the number of batches
+            #training_obj += -obj_train.data
+            training_ELBO[(N/training_batch_size)*training_batch_size:] = obj_train.data 
+
+            # Calculate the average and the SEM of the training ELBOs
+            training_obj = -training_ELBO.mean()
+            training_std = training_ELBO.std()
+            training_sem = training_std/xp.sqrt(N)
+
             with open(train_log_file, 'a') as f:
-                f.write(str(training_obj) + '\n')
+                f.write(str(training_obj) + ',' + str(training_sem) + '\n')
             
             vae.cleargrads()
 
@@ -241,12 +250,18 @@ with cupy.cuda.Device(gpu_id):
             
             # testing_obj /= (N_test/training_batch_size) # We want to average by the number of batches
 
+            testing_ELBO = xp.zeros([N_test])
             x_test_c = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
             obj_test = vae(x_test_c)
-            testing_obj = -obj_test.data
+            testing_ELBO = obj_test.data
+
+            # Calculate the average and SEM of the testing ELBOs
+            testing_obj = -testing_ELBO.mean()
+            testing_std = testing_ELBO.std()
+            testing_sem = testing_std/xp.sqrt(N_test)
 
             with open(test_log_file, 'a') as f:
-                f.write(str(testing_obj) + '\n')
+                f.write(str(testing_obj) + ',' + str(testing_sem) +  '\n')
             
 # Save model
 if args['-o'] is not None:

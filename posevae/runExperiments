@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Experiment 4, Day 3
+#./train.py -g 0 -o small_train --model-type vae --house-degree 1 --nmap 1 --vae-samples 1 -b 8192 --batch-limit 5000000 -t 3600 --time-print 600  --time-sample 1200 --log-interval 100 --test 600000 ./data/MSRC12-X-d60.mat
+
+#Experiment 1, Day 3
+#./train.py -g 0 -o 50_latent --model-type vae --nlatent 50 --house-degree 1 --nmap 1 --vae-samples 1 -b 8192 --batch-limit 5000000 -t 3600 --time-print 600  --time-sample 1200 --log-interval 100 --test 70000 ./data/MSRC12-X-d60.mat
+
+# ./train.py -g 0 -o 1024_hidden --model-type vae --nhidden 1024 --house-degree 1 --nmap 1 --vae-samples 1 -b 8192 --batch-limit 5000000 -t 900 --time-print 180  --time-sample 1200 --log-interval 100 --test 70000 ./data/MSRC12-X-d60.mat
+
+# ./train.py -g 0 -o small_test --model-type vae --house-degree 1 --nmap 1 --vae-samples 1 -b 8192 --batch-limit 5000000 -t 900 --time-print 180  --time-sample 1200 --log-interval 100 --test 8193 ./data/MSRC12-X-d60.mat
+
+# Combination of Experiment 1 and 4
+./train.py -g 0 -o combine_factors --model-type vae --nlatent 50 --house-degree 1 --nmap 1 --vae-samples 1 -b 8192 --batch-limit 5000000 -t 10800 --time-print 600  --time-sample 12000 --log-interval 100 --test 600000 ./data/MSRC12-X-d60.mat
+
+

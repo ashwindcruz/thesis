@@ -1,4 +1,4 @@
 #!/bin/bash
 
-./train.py -g 0 -o vae_debug_4096 -b 8192 --batch-limit 500 -t 300 --nhidden 256 --time-print 10 --time-sample 1200 --vae-samples 1 --log-interval 10 --test 70000 ../data/MSRC12-X-d60.mat
+./train.py -g 0 -o vae_debug_4096 -b 8192 --batch-limit 50000 -t 300 --nhidden 256 --time-print 1 --time-sample 1200 --vae-samples 1 --log-interval 100 --test 8192 ../data/MSRC12-X-d60.mat
 

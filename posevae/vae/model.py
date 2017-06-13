@@ -1,32 +1,16 @@
+import pdb
 
 import numpy as np
 import math
+import time
 import chainer
 import chainer.functions as F
 import chainer.links as L
 from chainer import cuda
 
-def gaussian_kl_divergence(mu, ln_var):
-    """D_{KL}(N(mu,var) | N(0,1))"""
-    batchsize = mu.data.shape[0]
-    S = F.exp(ln_var)
-    D = mu.data.size
+from util import gaussian_kl_divergence_standard
+from util import gaussian_logp
 
-    KL_sum = 0.5*(F.sum(S) + F.sum(mu*mu) - F.sum(ln_var) - D)
-
-    return KL_sum / batchsize
-
-def gaussian_logp(x, mu, ln_var):
-    """log N(x ; mu, var)"""
-    batchsize = mu.data.shape[0]
-    D = x.data.size
-    S = F.exp(ln_var)
-    xc = x - mu
-
-    logp_sum = -0.5*(F.sum((xc*xc) / S) + F.sum(ln_var)
-        + D*math.log(2.0*math.pi))
-
-    return logp_sum / batchsize
 
 class VAE(chainer.Chain):
     def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples=1):
@@ -68,22 +52,38 @@ class VAE(chainer.Chain):
 
     def __call__(self, x):
         # Compute q(z|x)
+        encoding_time = time.time()
         self.encode(x)
+        encoding_time = float(time.time() - encoding_time)
 
-        self.kl = gaussian_kl_divergence(self.qmu, self.qln_var)
+        decoding_time_average = 0.
+
+        self.kl = gaussian_kl_divergence_standard(self.qmu, self.qln_var)
         self.logp = 0
         for j in xrange(self.num_zsamples):
             # z ~ q(z|x)
             z = F.gaussian(self.qmu, self.qln_var)
 
             # Compute p(x|z)
+            decoding_time = time.time()
             self.decode(z)
+            decoding_time = time.time() - decoding_time
+            decoding_time_average += decoding_time
 
             # Compute objective
+            #self.logp += gaussian_logp(x, self.pmu, self.pln_var)
             self.logp += gaussian_logp(x, self.pmu, self.pln_var)
-
+            
+        decoding_time_average /= self.num_zsamples
         self.logp /= self.num_zsamples
-        self.obj = self.kl - self.logp
+        self.obj_batch = self.kl - self.logp
+        self.test_item = 1
+        self.timing_info = np.array([encoding_time,decoding_time])
+
+        batch_size = self.obj_batch.shape[0]
+        
+        self.obj = F.sum(self.obj_batch)/batch_size
+        self.obj_batch = -self.obj_batch
 
         return self.obj
 
