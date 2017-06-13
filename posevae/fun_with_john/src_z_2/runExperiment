@@ -1,0 +1,3 @@
+#!/bin/bash
+
+./train.py -g 0 -o debug -b 8192 -t 900 --vae-samples 1 --nhidden 128 --nlatent 2 --time-sample 60 data.mat 
