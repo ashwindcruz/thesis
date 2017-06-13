@@ -331,12 +331,10 @@ with cupy.cuda.Device(gpu_id):
 
             print('##################### Saving Model Checkpoint     #####################')
             # Save model
-<<<<<<< HEAD
-            if args['-o'] is not None:
-=======
+
             if ((args['-o'] is not None) and ((bi-1)%(log_interval*100)==0)): #Additional *5 term because we don't want a checkpoint every log point
                 #print('##################### Saving Model Checkpoint     #####################')
->>>>>>> 3d1965b... Fixing repo
+
                 batch_number = str(bi).zfill(6)
                 modelfile = directory + '/' + args['-o'] + '_' + batch_number + '.h5'
                 print "Writing model checkpoint to '%s' ..." % (modelfile)
