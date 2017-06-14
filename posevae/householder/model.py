@@ -14,7 +14,7 @@ from util import gaussian_kl_divergence
 
 
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples=1, house_degree=1):
+    def __init__(self, dim_in, dim_hidden, dim_latent, temperature, num_zsamples=1, house_degree=1):
         super(VAE, self).__init__(
             # encoder
             qlin0 = L.Linear(dim_in, dim_hidden),
@@ -34,6 +34,7 @@ class VAE(chainer.Chain):
             # linear layer required for v_t of Householder flow transformations
             qlin_h_vec_t = L.Linear(dim_latent, dim_latent, initial_bias=-5),
         )
+        self.temperature = temperature
         self.num_zsamples = num_zsamples
         self.house_degree = house_degree
 
@@ -102,7 +103,11 @@ class VAE(chainer.Chain):
         
         self.logp /= self.num_zsamples
         self.kl /= self.num_zsamples
-        self.obj_batch = self.logp - self.kl
+        
+        current_temperature = min(self.temperature['value'],1.0)
+        self.obj_batch = self.logp - (current_temperature*self.kl)
+        self.temperature['value'] += self.temperature['increment']
+
 
         self.timing_info = np.array([encoding_time,decoding_time_average])
 

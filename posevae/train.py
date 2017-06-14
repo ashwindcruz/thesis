@@ -85,23 +85,29 @@ print "Using %d VAE samples per instance" % zcount
 log_interval = int(args['--log-interval'])
 print "Recording training and testing ELBO every %d batches" % log_interval
 
+# Provide initial temperature and number of epochs for the schedule
+temperature = {}
+temperature['value'] = 0.50
+temperature_epochs = 200
+temperature['increment'] = (1.0-0.85)/temperature_epochs
+
 # Check which model was specified
 model_type = args['--model-type']
 if model_type=='vae':
-    vae = vae.VAE(d, nhidden, nlatent, zcount)
+    vae = vae.VAE(d, nhidden, nlatent, temperature, zcount)
 elif model_type=='iwae':
-    vae = iwae.VAE(d, nhidden, nlatent, zcount)
+    vae = iwae.VAE(d, nhidden, nlatent, temperature, zcount)
 elif model_type=='householder':
     hdegree = int(args['--trans'])
     print 'Using %d Householder flow transformations' % hdegree
-    vae = householder.VAE(d, nhidden, nlatent, zcount, hdegree)
+    vae = householder.VAE(d, nhidden, nlatent, temperature, zcount, hdegree)
 elif model_type=='planar':
     nmap = int(args['--trans'])
     print 'Using %d Planar flow mappings' % nmap
     vae = planar.VAE(d, nhidden, nlatent, zcount, nmap)
 
-
-opt = optimizers.Adam()
+learning_rate = 1e-3
+opt = optimizers.Adam(alpha=learning_rate)
 opt.setup(vae)
 opt.add_hook(chainer.optimizer.GradientClipping(4.0))
 
@@ -165,7 +171,7 @@ with cupy.cuda.Device(gpu_id):
 
     with open(test_log_file, 'w+') as f:
         f.write('ELBO, KL, Logp, SEM, Encoder Time, Decoder Time, Backward Time \n')
-    
+    # pdb.set_trace()
     while True:
         bi += 1
         period_bi += 1
@@ -204,17 +210,21 @@ with cupy.cuda.Device(gpu_id):
 
         X_online = np.random.permutation(X_train)
         vae = util.evaluate_dataset(vae, X_online, batch_size, online_log_file, True, opt)
+        
+
+        # If the model breaks, skip this training iteration
+        if(math.isnan(vae.obj.data)):
+            # if args['-o'] is not None:
+            #     modelmeta = directory + '/' + 'pre_break_meta.yaml'
+            #     print "Writing model metadata to '%s' ..." % (modelmeta)
+            #     with open(modelmeta, 'w') as outfile:
+            #         outfile.write(yaml.dump(dict(args), default_flow_style=False))
+            # break
+            bi -=1
+            continue
+            
         obj_mean += vae.obj.data
         obj_count += 1
-
-        # If the model breaks, terminate training early
-        if(math.isnan(vae.obj.data)):
-            if args['-o'] is not None:
-                modelmeta = directory + '/' + 'pre_break_meta.yaml'
-                print "Writing model metadata to '%s' ..." % (modelmeta)
-                with open(modelmeta, 'w') as outfile:
-                    outfile.write(yaml.dump(dict(args), default_flow_style=False))
-            break
 
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
@@ -263,3 +273,13 @@ if args['-o'] is not None:
     print "Writing final model to '%s' ..." % (modelfile)
     serializers.save_hdf5(modelfile, vae)
 
+counter +=1
+print "   # sampling"
+z = np.random.normal(loc=0.0, scale=1.0, size=(16384,nlatent))
+z = chainer.Variable(xp.asarray(z, dtype=np.float32))
+vae.decode(z)
+Xsample = F.gaussian(vae.pmu, vae.pln_var)
+Xsample.to_cpu()
+sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
+vae.pmu.to_cpu()
+sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })

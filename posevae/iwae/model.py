@@ -14,7 +14,7 @@ from util import gaussian_logp
 
 
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples=1):
+    def __init__(self, dim_in, dim_hidden, dim_latent, temperature, num_zsamples=1):
         super(VAE, self).__init__(
             # encoder
             qlin0 = L.Linear(dim_in, dim_hidden),
@@ -32,6 +32,7 @@ class VAE(chainer.Chain):
             plin_ln_var = L.Linear(2*dim_hidden, dim_in, initial_bias=-5),
         )
         self.num_zsamples = num_zsamples
+        self.temperature = temperature
 
     def encode(self, x):
         h = F.crelu(self.qlin0(x))
@@ -87,11 +88,14 @@ class VAE(chainer.Chain):
             prior_log = gaussian_logp(z, self.qmu*0, self.qln_var/self.qln_var)
             
             # Store the latest log weight'
-            self.w_holder.append(decoder_log + prior_log - encoder_log)
+            current_temperature = min(self.temperature['value'],1.0)
+            self.w_holder.append(decoder_log + current_temperature*(prior_log - encoder_log))
 
             # Store the KL and Logp equivalents. They are not used for computation but for recording and reporting. 
             self.kl += (encoder_log-prior_log)
             self.logp += (decoder_log)
+
+        self.temperature['value'] += self.temperature['increment']
         
 
         # Compute w' for this sample (batch)

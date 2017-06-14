@@ -13,7 +13,7 @@ from util import gaussian_logp
 
 
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples=1):
+    def __init__(self, dim_in, dim_hidden, dim_latent, temperature, num_zsamples=1):
         super(VAE, self).__init__(
             # encoder
             qlin0 = L.Linear(dim_in, dim_hidden),
@@ -21,16 +21,17 @@ class VAE(chainer.Chain):
             qlin2 = L.Linear(2*dim_hidden, dim_hidden),
             qlin3 = L.Linear(2*dim_hidden, dim_hidden),
             qlin_mu = L.Linear(2*dim_hidden, dim_latent),
-            qlin_ln_var = L.Linear(2*dim_hidden, dim_latent, initial_bias=-5),
+            qlin_ln_var = L.Linear(2*dim_hidden, dim_latent),
             # decoder
             plin0 = L.Linear(dim_latent, dim_hidden),
             plin1 = L.Linear(2*dim_hidden, dim_hidden),
             plin2 = L.Linear(2*dim_hidden, dim_hidden),
             plin3 = L.Linear(2*dim_hidden, dim_hidden),
             plin_mu = L.Linear(2*dim_hidden, dim_in),
-            plin_ln_var = L.Linear(2*dim_hidden, dim_in, initial_bias=-5),
+            plin_ln_var = L.Linear(2*dim_hidden, dim_in),
         )
         self.num_zsamples = num_zsamples
+        self.temperature = temperature
 
     def encode(self, x):
         h = F.crelu(self.qlin0(x))
@@ -72,10 +73,13 @@ class VAE(chainer.Chain):
 
             # Compute objective
             self.logp += gaussian_logp(x, self.pmu, self.pln_var)
-            
+
+        current_temperature = min(self.temperature['value'],1.0)
+        self.temperature['value'] += self.temperature['increment']
+
         decoding_time_average /= self.num_zsamples
         self.logp /= self.num_zsamples
-        self.obj_batch = self.logp - self.kl 
+        self.obj_batch = self.logp - (current_temperature*self.kl)
         self.timing_info = np.array([encoding_time,decoding_time_average])
 
         batch_size = self.obj_batch.shape[0]
