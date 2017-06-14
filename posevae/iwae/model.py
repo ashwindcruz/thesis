@@ -1,14 +1,16 @@
 import pdb
 
-import numpy as np
 import math
+import numpy as np
+import time
+
+
 import chainer
 import chainer.functions as F
 import chainer.links as L
 from chainer import cuda
 
 from util import gaussian_logp
-from util import logsumexp
 
 
 class VAE(chainer.Chain):
@@ -62,6 +64,8 @@ class VAE(chainer.Chain):
         xp = cuda.cupy
         self.importance_weights = 0
         self.w_holder = []
+        self.kl = 0
+        self.logp = 0
 
         for j in xrange(self.num_zsamples):
             # Sample z ~ q(z|x)
@@ -82,33 +86,26 @@ class VAE(chainer.Chain):
             # Compute log p(z). The odd notation being used is to supply a mean of 0 and covariance of 1
             prior_log = gaussian_logp(z, self.qmu*0, self.qln_var/self.qln_var)
             
-            # Compute w' for this sample (batch)
-            #k_log = chainer.Variable(xp.asarray(np.log(self.num_zsamples), dtype=np.float32))
-            k_log = np.log(self.num_zsamples)
-            # pdb.set_trace()
-
             # Store the latest log weight'
-            self.w_holder.append(decoder_log + prior_log - encoder_log - k_log)
-        # pdb.set_trace()
+            self.w_holder.append(decoder_log + prior_log - encoder_log)
 
-        # Collate the information from the various samples
-        # self.obj = []# np.zeros([1,8192])
-        # for i in range(8192):
-            # pdb.set_trace()
-        # self.obj.append(logsumexp(self.w_holder)
-        # self.obj = logsumexp(self.w_holder)
-        # pdb.set_trace()
-        #self.obj = chainer.Variable(self.obj)
+            # Store the KL and Logp equivalents. They are not used for computation but for recording and reporting. 
+            self.kl += (encoder_log-prior_log)
+            self.logp += (decoder_log)
+        
+
+        # Compute w' for this sample (batch)
+        logps = F.stack(self.w_holder)
+        self.obj_batch = F.logsumexp(logps, axis=0) - np.log(self.num_zsamples)
+        self.kl /= self.num_zsamples
+        self.kl /= self.num_zsamples
+        
         decoding_time_average /= self.num_zsamples
         
         batch_size = self.obj_batch.shape[0]
         
+        self.obj = -F.sum(self.obj_batch)/batch_size        
+        self.timing_info = np.array([encoding_time,decoding_time_average])
 
-
-        self.obj = logsumexp(self.w_holder)
-        
-        self.timing_info = np.array([encoding_time,decoding_time])
-
-        # pdb.set_trace()
-        return -self.obj, timing_info
+        return self.obj
 

@@ -33,7 +33,7 @@ The data.mat file must contain a (N,d) array of N instances, d dimensions
 each.
 """
 
-
+import math
 import time
 import yaml
 import numpy as np
@@ -50,7 +50,7 @@ from chainer import computational_graph
 import chainer.functions as F
 import cupy
 
-from vae_SEM import model as vae 
+from vae import model as vae 
 from iwae import model as iwae 
 from householder import model as householder
 from planar import model as planar 
@@ -68,7 +68,7 @@ print "Using chainer version %s" % chainer.__version__
 data_mat = sio.loadmat('./data/pose_training.mat')
 X_train = data_mat.get('X')
 N = X_train.shape[0]
-d = X.train.shape[1] 
+d = X_train.shape[1] 
 print "%d instances, %d dimensions" % (N, d)
 
 data_mat = sio.loadmat('./data/pose_validation.mat')
@@ -132,7 +132,6 @@ print_every_s = float(args['--time-print'])
 print_at = start_at + print_every_s
 
 sample_every_epoch = float(args['--epoch-sample'])
-sample_at = start_at + sample_every_s
 
 bi = 0  # batch index
 printcount = 0
@@ -195,8 +194,8 @@ with cupy.cuda.Device(gpu_id):
             tput = float(period_bi * batch_size) / (now - period_start_at)
             if(obj_count==0):
                 obj_count+=1
-            EO = obj_mean / obj_count
-            print "   %.1fs of %.1fs  [%d] batch %d, E[obj] %.4f, KL %.4f, Logp %.4f,  %.2f S/s, %d total" % \
+            EO = -obj_mean / obj_count
+            print "   %.1fs of %.1fs  [%d] epoch %d, E[obj] %.4f, KL %.4f, Logp %.4f,  %.2f S/s, %d total" % \
                   (tpassed, runtime, printcount, bi, EO, xp.mean(vae.kl.data), xp.mean(vae.logp.data), tput, total)
 
             period_start_at = now
@@ -205,8 +204,10 @@ with cupy.cuda.Device(gpu_id):
             period_bi = 0
 
         X_online = np.random.permutation(X_train)
-        vae, obj_mean = util.evaluate_dataset(vae, X_online, batch_size, online_log_file, True, opt)
-      
+        vae = util.evaluate_dataset(vae, X_online, batch_size, online_log_file, True, opt)
+        obj_mean += vae.obj.data
+        obj_count += 1
+
         # If the model breaks, terminate training early
         if(math.isnan(vae.obj.data)):
             if args['-o'] is not None:
@@ -221,16 +222,12 @@ with cupy.cuda.Device(gpu_id):
         if((bi-1)%log_interval==0):
             eval_batch_size = 8192
             
-            print('##################### Post Epoch Evaluation      #####################')
+            #print('##################### Post Epoch Evaluation      #####################')
             util.evaluate_dataset(vae, X_train, batch_size, train_log_file, False, opt)
             util.evaluate_dataset(vae, X_validation, batch_size, test_log_file, False, opt)   
 
-            
-            print('##################### Saving Model Checkpoint     #####################')
-            # Save model
-
             if ((args['-o'] is not None) and ((bi-1)%(log_interval*100)==0)): #Additional *5 term because we don't want a checkpoint every log point
-                #print('##################### Saving Model Checkpoint     #####################')
+                print('##################### Saving Model Checkpoint     #####################')
 
                 batch_number = str(bi).zfill(6)
                 modelfile = directory + '/' + args['-o'] + '_' + batch_number + '.h5'

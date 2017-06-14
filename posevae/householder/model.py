@@ -1,7 +1,9 @@
 import pdb
 
-import numpy as np
 import math
+import numpy as np
+import time
+
 import chainer
 import chainer.functions as F
 import chainer.links as L
@@ -95,18 +97,18 @@ class VAE(chainer.Chain):
             self.logp += gaussian_logp(x, self.pmu, self.pln_var)
             self.kl += gaussian_kl_divergence(z_0, qmu, qln_var, z_T)
             
+        
+        decoding_time_average /= self.num_zsamples
+        
         self.logp /= self.num_zsamples
         self.kl /= self.num_zsamples
-        self.obj_batch = self.kl - self.logp
+        self.obj_batch = self.logp - self.kl
 
-        decoding_time_average /= self.num_zsamples
-        self.timing_info = np.array([encoding_time,decoding_time])
+        self.timing_info = np.array([encoding_time,decoding_time_average])
 
         batch_size = self.obj_batch.shape[0]
         
-        self.obj = F.sum(self.obj_batch)/batch_size
-        self.obj_batch = -self.obj_batch
-
-
+        self.obj = -F.sum(self.obj_batch)/batch_size
+        
         return self.obj
 

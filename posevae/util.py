@@ -4,6 +4,7 @@ import numpy as np
 import math
 import subprocess
 from subprocess import PIPE
+import time
 
 import chainer
 from chainer import cuda
@@ -78,7 +79,7 @@ def evaluate_dataset(vae_model, dataset, batch_size, log_file, backward, opt):
     if(backward):
       vae_model.zerograds()
       backward_timing_now = time.time()
-      vae_model.backward()
+      vae_model.obj.backward()
       opt.update()
       backward_timing += (time.time() - backward_timing_now)
 
@@ -93,7 +94,7 @@ def evaluate_dataset(vae_model, dataset, batch_size, log_file, backward, opt):
   if(backward):
       vae_model.zerograds()
       backward_timing_now = time.time()
-      vae_model.backward()
+      vae_model.obj.backward()
       opt.update()
       backward_timing += (time.time() - backward_timing_now)
 
@@ -110,5 +111,7 @@ def evaluate_dataset(vae_model, dataset, batch_size, log_file, backward, opt):
   obj_sem = obj_std/xp.sqrt(N)
 
   with open(log_file, 'a') as f:
-    f.write(str(obj_ave) + ',' + str(kl_mean) + ',' + str(logp_mean) + ',' + str(obj_sem) + ',' + \
-      + str(timing_info[0]) + ',' + str(timing_info[1]) + str(backward_timing[0]) '\n')
+    f.write(str(obj_ave) + ',' + str(kl_mean) + ',' + str(logp_mean) + ',' + str(obj_sem) + ',' \
+      + str(timing_info[0]) + ',' + str(timing_info[1]) + str(backward_timing[0]) + '\n')
+
+  return vae_model
