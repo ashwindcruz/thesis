@@ -77,7 +77,6 @@ class VAE(chainer.Chain):
         decoding_time_average /= self.num_zsamples
         self.logp /= self.num_zsamples
         self.obj_batch = self.kl - self.logp
-        self.test_item = 1
         self.timing_info = np.array([encoding_time,decoding_time])
 
         batch_size = self.obj_batch.shape[0]

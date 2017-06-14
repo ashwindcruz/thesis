@@ -97,10 +97,16 @@ class VAE(chainer.Chain):
             
         self.logp /= self.num_zsamples
         self.kl /= self.num_zsamples
-        self.obj = self.kl - self.logp
+        self.obj_batch = self.kl - self.logp
 
         decoding_time_average /= self.num_zsamples
-        timing_info = np.array([encoding_time,decoding_time])
+        self.timing_info = np.array([encoding_time,decoding_time])
 
-        return self.obj, timing_info
+        batch_size = self.obj_batch.shape[0]
+        
+        self.obj = F.sum(self.obj_batch)/batch_size
+        self.obj_batch = -self.obj_batch
+
+
+        return self.obj
 

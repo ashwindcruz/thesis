@@ -21,7 +21,7 @@ Options:
   --nhidden <nhidden>           Number of hidden dimensions [default: 256].
   --nlatent <nz>                Number of latent VAE dimensions [default: 16].
   --time-print=<sec>            Print status every so often [default: 60].
-  --time-sample=<sec>           Print status every so often [default: 600].
+  --epoch-sample=<sec>          Sample every so often [default: 10].
   --dump-every=<sec>            Dump model every so often [default: 900].
   --log-interval <log-interval> Number of batches before logging training and testing ELBO [default: 100].
   --test <test>                 Number of samples to set aside for testing [default:70000].
@@ -57,9 +57,6 @@ from planar import model as planar
 
 import util
 
-
-np.random.seed(0) # For debugging purposes, this removes one factor of influece from our experiments
-
 import pdb
 
 args = docopt(__doc__, version='train 0.1')
@@ -67,25 +64,16 @@ print(args)
 
 print "Using chainer version %s" % chainer.__version__
 
-# Loading training data
-data_mat = h5py.File(args['<data.mat>'], 'r')
-X = data_mat.get('X')
-X = np.array(X)
-X = X.transpose()
-N = X.shape[0]
-d = X.shape[1]
+# Loading training and validation data
+data_mat = sio.loadmat('./data/pose_training.mat')
+X_train = data_mat.get('X')
+N = X_train.shape[0]
+d = X.train.shape[1] 
 print "%d instances, %d dimensions" % (N, d)
 
-# Split data into training and testing data
-# In case the there is a sequential relationship in the data. The seed fixing at the start ensures that the shuffle is consistent between experimental runs.
-X  = np.random.permutation(X)
-test_size = int(args['--test'])
-X_test = X[0:test_size,:]
-X_train = X[test_size:,:]
+data_mat = sio.loadmat('./data/pose_validation.mat')
+X_validation = data_mat.get('X')
 
-N = X_train.shape[0]
-N_test = X_test.shape[0]
-#N -= test_size
 
 # Set up model
 nhidden = int(args['--nhidden'])
@@ -143,7 +131,7 @@ runtime = int(args['--runtime'])
 print_every_s = float(args['--time-print'])
 print_at = start_at + print_every_s
 
-sample_every_s = float(args['--time-sample'])
+sample_every_epoch = float(args['--epoch-sample'])
 sample_at = start_at + sample_every_s
 
 bi = 0  # batch index
@@ -172,13 +160,13 @@ with cupy.cuda.Device(gpu_id):
     test_log_file  = directory + '/' + args['-o'] +  '_test_log.txt' 
 
     with open(online_log_file, 'w+') as f:
-        f.write('Online Log \n')
+        f.write('ELBO, KL, Logp, SEM, Encoder Time, Decoder Time, Backward Time \n')
 
     with open(train_log_file, 'w+') as f:
-        f.write('Training Log \n')
+        f.write('ELBO, KL, Logp, SEM, Encoder Time, Decoder Time, Backward Time \n')
 
     with open(test_log_file, 'w+') as f:
-        f.write('Testing Log \n')
+        f.write('ELBO, KL, Logp, SEM, Encoder Time, Decoder Time, Backward Time \n')
     
     while True:
         bi += 1
@@ -208,9 +196,8 @@ with cupy.cuda.Device(gpu_id):
             if(obj_count==0):
                 obj_count+=1
             EO = obj_mean / obj_count
-            #pdb.set_trace()
-            print "   %.1fs of %.1fs  [%d] batch %d, E[obj] %.4f,  %.2f S/s, %d total" % \
-                  (tpassed, runtime, printcount, bi, EO, tput, total)
+            print "   %.1fs of %.1fs  [%d] batch %d, E[obj] %.4f, KL %.4f, Logp %.4f,  %.2f S/s, %d total" % \
+                  (tpassed, runtime, printcount, bi, EO, xp.mean(vae.kl.data), xp.mean(vae.logp.data), tput, total)
 
             period_start_at = now
             obj_mean = 0.0
@@ -234,62 +221,11 @@ with cupy.cuda.Device(gpu_id):
         if((bi-1)%log_interval==0):
             eval_batch_size = 8192
             
-            print('##################### Beginning Training Evaluation #####################')
-            # Training results
-            training_ELBO = xp.zeros([N])
-            training_timing_info = np.array([0.,0.])
-            for i in range(0,N/eval_batch_size):
-                x_train_c = chainer.Variable(xp.asarray(X_train[i*eval_batch_size:(i+1)*eval_batch_size,:], dtype=np.float32), volatile='ON')
-                obj_train, obj_train_timing = vae(x_train_c)
-        
-                training_ELBO[i*eval_batch_size:(i+1)*eval_batch_size] = obj_train.data
-                training_timing_info += obj_train_timing
+            print('##################### Post Epoch Evaluation      #####################')
+            util.evaluate_dataset(vae, X_train, batch_size, train_log_file, False, opt)
+            util.evaluate_dataset(vae, X_validation, batch_size, test_log_file, False, opt)   
 
-            # One final smaller batch to cover what couldn't be captured in the loop
-            x_train_c = chainer.Variable(xp.asarray(X_train[(N/eval_batch_size)*eval_batch_size:,:], dtype=np.float32), volatile='ON')
-            obj_train, obj_train_timing = vae(x_train_c)
-            # pdb.set_trace()    
-            training_ELBO[(N/eval_batch_size)*eval_batch_size:] = obj_train.data 
-            # Don't use the latest information because the batchsize could be wildly different.
-            # Also, the division will yield the rounded down integer which is why we don't have a -1
-            training_timing_info /= (N/eval_batch_size) 
-
-            # Calculate the average and the SEM of the training ELBOs
-            training_obj = -training_ELBO.mean()
-            training_std = training_ELBO.std()
-            training_sem = training_std/xp.sqrt(N)
-
-            with open(train_log_file, 'a') as f:
-                f.write(str(training_obj) + ',' + str(training_sem) + ',' + str(training_timing_info[0]) + ',' + str(training_timing_info[1]) + '\n')
             
-            print('##################### Beginning Testing Evaluation   #####################')
-            # Testing results
-            testing_ELBO = xp.zeros([N_test])
-            testing_timing_info = np.array([0.,0.])
-            for i in range(0,N_test/eval_batch_size):
-                x_test_c = chainer.Variable(xp.asarray(X_test[i*eval_batch_size:(i+1)*eval_batch_size,:], dtype=np.float32), volatile='ON')
-                obj_test, obj_test_timing = vae(x_test_c)
-        
-                testing_ELBO[i*eval_batch_size:(i+1)*eval_batch_size] = obj_test.data
-                testing_timing_info += obj_test_timing
-
-            # One final smaller batch to cover what couldn't be captured in the loop
-            x_test_c = chainer.Variable(xp.asarray(X_test[(N_test/eval_batch_size)*eval_batch_size:,:], dtype=np.float32), volatile='ON')
-            obj_test, obj_test_timing = vae(x_test_c)
-            # pdb.set_trace()
-            testing_ELBO[(N_test/eval_batch_size)*eval_batch_size:] = obj_test.data 
-            # Don't use the latest information because the batchsize could be wildly different.
-            # Also, the division will yield the rounded down integer which is why we don't have a -1
-            testing_timing_info /= (N_test/eval_batch_size) 
-
-            # Calculate the average and the SEM of the training ELBOs
-            testing_obj = -testing_ELBO.mean()
-            testing_std = testing_ELBO.std()
-            testing_sem = testing_std/xp.sqrt(N)
-
-            with open(test_log_file, 'a') as f:
-                f.write(str(testing_obj) + ',' + str(testing_sem) + ',' + str(testing_timing_info[0]) + ',' + str(testing_timing_info[1]) + '\n')
-
             print('##################### Saving Model Checkpoint     #####################')
             # Save model
 
@@ -308,17 +244,18 @@ with cupy.cuda.Device(gpu_id):
             util.print_compute_graph(directory + '/' + args['--vis'], g)
 
         # Sample a set of poses
-        if now >= sample_at:
-            sample_at = now + sample_every_s
+        if (bi%sample_every_epoch==0):
+            counter +=1
             print "   # sampling"
             z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
             z = chainer.Variable(xp.asarray(z, dtype=np.float32))
             vae.decode(z)
             Xsample = F.gaussian(vae.pmu, vae.pln_var)
             Xsample.to_cpu()
-            sio.savemat('%s/%s_samples_%d.mat' % (directory,args['-o'], total), { 'X': Xsample.data })
-
-
+            sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
+            vae.pmu.to_cpu()
+            sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
+            
 # Save model
 if args['-o'] is not None:
     modelmeta = directory + '/' + args['-o'] + '.meta.yaml'

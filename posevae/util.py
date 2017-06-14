@@ -53,31 +53,62 @@ def gaussian_kl_divergence(z_0, z_0_mu, z_0_ln_var, z_T):
     return kl_loss
 
 # Function to evaluate average ELBO, SEM and timing for a particular dataset. 
-def evaluate_dataset(vae_model, dataset, batch_size, log_file):
+def evaluate_dataset(vae_model, dataset, batch_size, log_file, backward, opt):
+  volatile = 'ON'
+  if(backward):
+    volatile = 'OFF'
+
   N = dataset.shape[0]
   elbo = xp.zeros([N])
+  kl = xp.zeros([N])
+  logp = xp.zeros([N])
+  backward_timing = np.array([0.])
   timing_info = np.array([0.,0.])
 
   for i in range(0,N/batch_size):
-    data_subset = chainer.Variable(xp.asarray(dataset[i*batch_size:(i+1)*batch_size,:], dtype=np.float32), volatile='ON')
+    data_subset = chainer.Variable(xp.asarray(dataset[i*batch_size:(i+1)*batch_size,:], dtype=np.float32), volatile=volatile)
     obj = vae_model(data_subset)
 
     elbo[i*batch_size:(i+1)*batch_size] = vae_model.obj_batch.data
+    kl[i*batch_size:(i+1)*batch_size] = vae_model.kl.data
+    logp[i*batch_size:(i+1)*batch_size] = vae_model.logp.data
+    
     timing_info += vae_model.timing_info
 
+    if(backward):
+      vae_model.zerograds()
+      backward_timing_now = time.time()
+      vae_model.backward()
+      opt.update()
+      backward_timing += (time.time() - backward_timing_now)
+
+
   # One final smaller batch to cover what couldn't be captured in the loop
-  data_subset = chainer.Variable(xp.asarray(dataset[(N/batch_size)*batch_size:,:], dtype=np.float32), volatile='ON')
+  data_subset = chainer.Variable(xp.asarray(dataset[(N/batch_size)*batch_size:,:], dtype=np.float32), volatile=volatile)
   obj = vae_model(data_subset)
   elbo[(N/batch_size)*batch_size:] = vae_model.obj_batch.data
+  kl[(N/batch_size)*batch_size:] = vae_model.kl.data
+  logp[(N/batch_size)*batch_size:] = vae_model.logp.data
+
+  if(backward):
+      vae_model.zerograds()
+      backward_timing_now = time.time()
+      vae_model.backward()
+      opt.update()
+      backward_timing += (time.time() - backward_timing_now)
 
   # Don't use the latest timing information as it is a different batch size. Think more about this. 
   # TODO
   timing_info /= (N/batch_size)
+  backward_timing /= (N/batch_size)
 
   # Calculate the average ELBO and the SEM
   obj_ave = elbo.mean()
+  kl_mean  = kl.mean()
+  logp_mean = logp.mean()
   obj_std = elbo.std()
   obj_sem = obj_std/xp.sqrt(N)
 
   with open(log_file, 'a') as f:
-    f.write(str(obj_ave) + ',' + str(obj_sem) + ',' + str(timing_info[0]) + ',' + str(timing_info[1]) + '\n')
+    f.write(str(obj_ave) + ',' + str(kl_mean) + ',' + str(logp_mean) + ',' + str(obj_sem) + ',' + \
+      + str(timing_info[0]) + ',' + str(timing_info[1]) + str(backward_timing[0]) '\n')

@@ -100,9 +100,14 @@ class VAE(chainer.Chain):
         # pdb.set_trace()
         #self.obj = chainer.Variable(self.obj)
         decoding_time_average /= self.num_zsamples
+        
+        batch_size = self.obj_batch.shape[0]
+        
+
+
         self.obj = logsumexp(self.w_holder)
         
-        timing_info = np.array([encoding_time,decoding_time])
+        self.timing_info = np.array([encoding_time,decoding_time])
 
         # pdb.set_trace()
         return -self.obj, timing_info
