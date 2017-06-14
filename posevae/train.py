@@ -7,7 +7,7 @@ Date: 5th August 2016
 
 Usage:
   train.py (-h | --help)
-  train.py [options] <data.mat>
+  train.py [options]
 
 Options:
   -h --help                     Show this help screen.
@@ -24,10 +24,9 @@ Options:
   --epoch-sample=<sec>          Sample every so often [default: 10].
   --dump-every=<sec>            Dump model every so often [default: 900].
   --log-interval <log-interval> Number of batches before logging training and testing ELBO [default: 100].
-  --test <test>                 Number of samples to set aside for testing [default:70000].
   --vae-samples <zcount>        Number of samples in VAE/IWAE z [default: 1].
-  --house-degree <house-degree> Number of Householder flow transformations to apply. Only applicable with householder model. [default: 1]. 
-  --nmap <nmap>                 Number of Planar flow mappings to apply. Only applicable with planar model. [default:1].  
+  --trans <trans>               Number of Householder flow transformations to apply. Only applicable with householder and planar model [default: 2]. 
+  --data <data>                 Prefix of mat files that will be used for training and testing. 
 
 The data.mat file must contain a (N,d) array of N instances, d dimensions
 each.
@@ -65,13 +64,13 @@ print(args)
 print "Using chainer version %s" % chainer.__version__
 
 # Loading training and validation data
-data_mat = sio.loadmat('./data/pose_training.mat')
+data_mat = sio.loadmat('./data/' + args['--data'] + '_training.mat')
 X_train = data_mat.get('X')
 N = X_train.shape[0]
 d = X_train.shape[1] 
 print "%d instances, %d dimensions" % (N, d)
 
-data_mat = sio.loadmat('./data/pose_validation.mat')
+data_mat = sio.loadmat('./data/' + args['--data'] + '_validation.mat')
 X_validation = data_mat.get('X')
 
 
@@ -154,9 +153,9 @@ with cupy.cuda.Device(gpu_id):
     # x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
     
     # Set up the training and testing log files
-    online_log_file = directory + '/' + args['-o'] + '_online_log.txt' 
-    train_log_file = directory + '/' + args['-o'] + '_train_log.txt'
-    test_log_file  = directory + '/' + args['-o'] +  '_test_log.txt' 
+    online_log_file = directory + '/'  + 'online_log.txt' 
+    train_log_file = directory  + '/'  + 'train_log.txt'
+    test_log_file  = directory  + '/'  +  'test_log.txt' 
 
     with open(online_log_file, 'w+') as f:
         f.write('ELBO, KL, Logp, SEM, Encoder Time, Decoder Time, Backward Time \n')
