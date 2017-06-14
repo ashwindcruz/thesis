@@ -22,14 +22,14 @@ class VAE(chainer.Chain):
             qlin2 = L.Linear(2*dim_hidden, dim_hidden),
             qlin3 = L.Linear(2*dim_hidden, dim_hidden),
             qlin_mu = L.Linear(2*dim_hidden, dim_latent),
-            qlin_ln_var = L.Linear(2*dim_hidden, dim_latent),
+            qlin_ln_var = L.Linear(2*dim_hidden, dim_latent, initial_bias=-5),
             # decoder
             plin0 = L.Linear(dim_latent, dim_hidden),
             plin1 = L.Linear(2*dim_hidden, dim_hidden),
             plin2 = L.Linear(2*dim_hidden, dim_hidden),
             plin3 = L.Linear(2*dim_hidden, dim_hidden),
             plin_mu = L.Linear(2*dim_hidden, dim_in),
-            plin_ln_var = L.Linear(2*dim_hidden, dim_in),
+            plin_ln_var = L.Linear(2*dim_hidden, dim_in, initial_bias=-5),
         )
         self.num_zsamples = num_zsamples
 

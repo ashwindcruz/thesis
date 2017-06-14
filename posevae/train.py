@@ -92,11 +92,11 @@ if model_type=='vae':
 elif model_type=='iwae':
     vae = iwae.VAE(d, nhidden, nlatent, zcount)
 elif model_type=='householder':
-    hdegree = int(args['--house-degree'])
+    hdegree = int(args['--trans'])
     print 'Using %d Householder flow transformations' % hdegree
     vae = householder.VAE(d, nhidden, nlatent, zcount, hdegree)
 elif model_type=='planar':
-    nmap = int(args['--nmap'])
+    nmap = int(args['--trans'])
     print 'Using %d Planar flow mappings' % nmap
     vae = planar.VAE(d, nhidden, nlatent, zcount, nmap)
 
@@ -243,7 +243,7 @@ with cupy.cuda.Device(gpu_id):
         if (bi%sample_every_epoch==0):
             counter +=1
             print "   # sampling"
-            z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
+            z = np.random.normal(loc=0.0, scale=1.0, size=(16384,nlatent))
             z = chainer.Variable(xp.asarray(z, dtype=np.float32))
             vae.decode(z)
             Xsample = F.gaussian(vae.pmu, vae.pln_var)

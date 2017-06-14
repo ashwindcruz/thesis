@@ -5,3 +5,6 @@ posevae/data/pose_validation.mat
 posevae/data/moons_tight.pkl
 posevae/data/moons_tight_training.mat
 posevae/data/moons_tight_validation.mat
+posevae/data/moons_0.2.pkl
+posevae/data/moons_0.2_training.mat
+posevae/data/moons_0.2_validation.mat
