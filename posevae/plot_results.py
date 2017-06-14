@@ -47,7 +47,7 @@ with open(exp_folder+'/test_log.txt', 'r') as f:
 plt.plot(training_data, label='train')
 plt.plot(testing_data, label='test')
 plt.legend(loc='lower right')
-plt.savefig('eval_bug_plot.png')
+plt.savefig(exp_folder+'/eval_bug_plot.png')
 
 plt.figure()
 plt.plot(difference)
@@ -68,5 +68,5 @@ with open(exp_folder+'/online_log.txt', 'r') as f:
 
 plt.figure()
 plt.plot(online_data)
-plt.savefig('online_bug_plot.png')
+plt.savefig(exp_folder+ '/online_bug_plot.png')
 
