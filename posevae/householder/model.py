@@ -23,7 +23,7 @@ class VAE(chainer.Chain):
             qlin3 = L.Linear(2*dim_hidden, dim_hidden),
             qlin_mu = L.Linear(2*dim_hidden, dim_latent),
             qlin_ln_var = L.Linear(2*dim_hidden, dim_latent),
-            qlin_h_vec_0 = L.Linear(2*dim_hidden, dim_latent, initial_bias=-5),
+            qlin_h_vec_0 = L.Linear(2*dim_hidden, dim_latent),
             # decoder
             plin0 = L.Linear(dim_latent, dim_hidden),
             plin1 = L.Linear(2*dim_hidden, dim_hidden),
@@ -32,7 +32,7 @@ class VAE(chainer.Chain):
             plin_mu = L.Linear(2*dim_hidden, dim_in),
             plin_ln_var = L.Linear(2*dim_hidden, dim_in),
             # linear layer required for v_t of Householder flow transformations
-            qlin_h_vec_t = L.Linear(dim_latent, dim_latent, initial_bias=-5),
+            qlin_h_vec_t = L.Linear(dim_latent, dim_latent),
         )
         self.temperature = temperature
         self.num_zsamples = num_zsamples

@@ -11,5 +11,5 @@
 #	done
 #done
 
-./train.py -g 0 -o learning_rate --model-type vae --vae-samples 1 --trans 2 --nlatent 2 --nhidden 128 -b 8192 --batch-limit 50000 -t 3600 --time-print 1 --epoch-sample 200 --log-interval 200 --data moons_tight
+./train.py -g 0 -o overnight --model-type householder --vae-samples 1 --trans 2 --nlatent 16 --nhidden 256 -b 8192 --batch-limit 50000 -t 18000 --time-print 300 --epoch-sample 200 --log-interval 200 --data pose
 #	
