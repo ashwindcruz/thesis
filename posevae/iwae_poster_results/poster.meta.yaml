@@ -1,0 +1,17 @@
+--batch-limit: '50000'
+--batchsize: '8192'
+--data: moons_tight
+--device: '0'
+--dump-every: '900'
+--epoch-sample: '200'
+--help: false
+--log-interval: '200'
+--model-type: iwae
+--nhidden: '128'
+--nlatent: '2'
+--runtime: '3600'
+--time-print: '60'
+--trans: '2'
+--vae-samples: '2'
+--vis: null
+-o: poster

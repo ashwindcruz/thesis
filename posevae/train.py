@@ -87,9 +87,9 @@ print "Recording training and testing ELBO every %d batches" % log_interval
 
 # Provide initial temperature and number of epochs for the schedule
 temperature = {}
-temperature['value'] = 0.50
+temperature['value'] = 0.
 temperature_epochs = 200
-temperature['increment'] = (1.0-0.85)/temperature_epochs
+temperature['increment'] = (1.0-temperature['value'])/temperature_epochs
 
 # Check which model was specified
 model_type = args['--model-type']
@@ -106,10 +106,15 @@ elif model_type=='planar':
     print 'Using %d Planar flow mappings' % nmap
     vae = planar.VAE(d, nhidden, nlatent, zcount, nmap)
 
-learning_rate = 1e-3
-opt = optimizers.Adam(alpha=learning_rate)
+# Set up learning rate parameters. Specifically, there is an exponential decay on the learning rate and the parameters for those are set here.
+alpha_0 = 1e-3
+k_decay = 0
+
+
+opt = optimizers.Adam(alpha=alpha_0)
 opt.setup(vae)
 opt.add_hook(chainer.optimizer.GradientClipping(4.0))
+opt.add_hook(chainer.optimizer.WeightDecay(0.0))
 
 # Move to GPU
 gpu_id = int(args['--device'])
@@ -138,13 +143,13 @@ print_at = start_at + print_every_s
 
 sample_every_epoch = float(args['--epoch-sample'])
 
-bi = 0  # batch index
+bi = 0  # epoch index
 printcount = 0
 
 obj_mean = 0.0
 obj_count = 0
 
-
+# Sample counter
 counter = 0
 
 # Folder where results will be saved
@@ -152,11 +157,7 @@ directory = model_type + '_' + args['-o'] + '_results'
 if not os.path.exists(directory):
     os.makedirs(directory)
 
-
 with cupy.cuda.Device(gpu_id):
-    # Set up variables that cover the entire training and testing sets
-    # x_train = chainer.Variable(xp.asarray(X_train, dtype=np.float32))
-    # x_test = chainer.Variable(xp.asarray(X_test, dtype=np.float32))
     
     # Set up the training and testing log files
     online_log_file = directory + '/'  + 'online_log.txt' 
@@ -210,21 +211,16 @@ with cupy.cuda.Device(gpu_id):
 
         X_online = np.random.permutation(X_train)
         vae = util.evaluate_dataset(vae, X_online, batch_size, online_log_file, True, opt)
-        
+                
 
         # If the model breaks, skip this training iteration
         if(math.isnan(vae.obj.data)):
-            # if args['-o'] is not None:
-            #     modelmeta = directory + '/' + 'pre_break_meta.yaml'
-            #     print "Writing model metadata to '%s' ..." % (modelmeta)
-            #     with open(modelmeta, 'w') as outfile:
-            #         outfile.write(yaml.dump(dict(args), default_flow_style=False))
-            # break
             bi -=1
             continue
             
         obj_mean += vae.obj.data
         obj_count += 1
+        opt.alpha = alpha_0*math.exp(-k_decay*bi)
 
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
@@ -253,7 +249,7 @@ with cupy.cuda.Device(gpu_id):
         if (bi%sample_every_epoch==0):
             counter +=1
             print "   # sampling"
-            z = np.random.normal(loc=0.0, scale=1.0, size=(16384,nlatent))
+            z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
             z = chainer.Variable(xp.asarray(z, dtype=np.float32))
             vae.decode(z)
             Xsample = F.gaussian(vae.pmu, vae.pln_var)
@@ -273,9 +269,14 @@ if args['-o'] is not None:
     print "Writing final model to '%s' ..." % (modelfile)
     serializers.save_hdf5(modelfile, vae)
 
+# Record final information 
+
+util.evaluate_dataset(vae, X_train, batch_size, train_log_file, False, opt)
+util.evaluate_dataset(vae, X_validation, batch_size, test_log_file, False, opt)  
+
 counter +=1
 print "   # sampling"
-z = np.random.normal(loc=0.0, scale=1.0, size=(16384,nlatent))
+z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
 z = chainer.Variable(xp.asarray(z, dtype=np.float32))
 vae.decode(z)
 Xsample = F.gaussian(vae.pmu, vae.pln_var)

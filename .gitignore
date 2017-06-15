@@ -8,3 +8,6 @@ posevae/data/moons_tight_validation.mat
 posevae/data/moons_0.2.pkl
 posevae/data/moons_0.2_training.mat
 posevae/data/moons_0.2_validation.mat
+posevae/data/mnist_training.mat
+posevae/data/mnist_validation.mat
+posevae/data/mnist_testing.mat
