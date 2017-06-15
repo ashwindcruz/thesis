@@ -228,14 +228,14 @@ with cupy.cuda.Device(gpu_id):
             eval_batch_size = 8192
             
             #print('##################### Post Epoch Evaluation      #####################')
-            util.evaluate_dataset(vae, X_train, batch_size, train_log_file, False, opt)
+            #util.evaluate_dataset(vae, X_train, batch_size, train_log_file, False, opt)
             util.evaluate_dataset(vae, X_validation, batch_size, test_log_file, False, opt)   
 
             if ((args['-o'] is not None) and ((bi-1)%(log_interval*100)==0)): #Additional *5 term because we don't want a checkpoint every log point
                 print('##################### Saving Model Checkpoint     #####################')
 
                 batch_number = str(bi).zfill(6)
-                modelfile = directory + '/' + args['-o'] + '_' + batch_number + '.h5'
+                modelfile = directory + '/_' + batch_number + '.h5'
                 print "Writing model checkpoint to '%s' ..." % (modelfile)
                 serializers.save_hdf5(modelfile, vae)
 
@@ -258,17 +258,6 @@ with cupy.cuda.Device(gpu_id):
             vae.pmu.to_cpu()
             sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
             
-# Save model
-if args['-o'] is not None:
-    modelmeta = directory + '/' + args['-o'] + '.meta.yaml'
-    print "Writing model metadata to '%s' ..." % (modelmeta)
-    with open(modelmeta, 'w') as outfile:
-        outfile.write(yaml.dump(dict(args), default_flow_style=False))
-
-    modelfile = directory + '/' + args['-o'] + '.h5'
-    print "Writing final model to '%s' ..." % (modelfile)
-    serializers.save_hdf5(modelfile, vae)
-
 # Record final information 
 
 util.evaluate_dataset(vae, X_train, batch_size, train_log_file, False, opt)
@@ -284,3 +273,14 @@ Xsample.to_cpu()
 sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
 vae.pmu.to_cpu()
 sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
+
+# Save model
+if args['-o'] is not None:
+    modelmeta = directory + '/meta.yaml'
+    print "Writing model metadata to '%s' ..." % (modelmeta)
+    with open(modelmeta, 'w') as outfile:
+        outfile.write(yaml.dump(dict(args), default_flow_style=False))
+
+    modelfile = directory + '/' + args['-o'] + '.h5'
+    print "Writing final model to '%s' ..." % (modelfile)
+    serializers.save_hdf5(modelfile, vae)

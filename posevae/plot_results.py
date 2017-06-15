@@ -41,11 +41,11 @@ with open(exp_folder+'/test_log.txt', 'r') as f:
 		testingMeanLowerBound.append(float(data[0]) - 1.96*float(data[1]))
 		testingMeanUpperBound.append(float(data[0]) + 1.96*float(data[1]))
 
-		difference.append(training_data[counter]-float(data[0]))
-		counter += 1
+#		difference.append(training_data[counter]-float(data[0]))
+#		counter += 1
 
-plt.plot(training_data[10:], label='train')
-plt.plot(testing_data[10:], label='test')
+plt.plot(training_data, label='train')
+plt.plot(testing_data, label='test')
 plt.legend(loc='lower right')
 plt.savefig(exp_folder+'/eval_bug_plot.png')
 

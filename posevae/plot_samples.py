@@ -16,6 +16,8 @@ for i in range(int(sys.argv[2])):
 	x = scipy.io.loadmat(data_file)['X']
 	plt.figure()
 	plt.scatter(x[:,0], x[:,1], s=1, color='gray')
+ 	plt.xlim([-1.25,2.25])
+        plt.ylim([-0.75,1.25])
 	plt.savefig(figure_file, bbox_inches='tight')
 	plt.close()
 

@@ -1,0 +1,17 @@
+--batch-limit: '50000'
+--batchsize: '16384'
+--data: pose
+--device: '0'
+--dump-every: '900'
+--epoch-sample: '200'
+--help: false
+--log-interval: '5'
+--model-type: householder
+--nhidden: '256'
+--nlatent: '16'
+--runtime: '18000'
+--time-print: '300'
+--trans: '2'
+--vae-samples: '1'
+--vis: null
+-o: long_3
