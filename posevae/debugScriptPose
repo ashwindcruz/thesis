@@ -11,5 +11,5 @@
 #	done
 #done
 
-./train.py -g 0 -o long_3 --model-type householder --vae-samples 1 --trans 2 --nlatent 16 --nhidden 256 -b 16384 --batch-limit 50000 -t 18000 --time-print 300 --epoch-sample 200 --log-interval 5 --data pose
+./train.py -g 0 -o long_4 --model-type householder --vae-samples 1 --trans 2 --nlatent 16 --nhidden 512 -b 16384 --batch-limit 50000 -t 18000 --time-print 600 --epoch-sample 200 --log-interval 5 --data pose
 #	
