@@ -11,3 +11,6 @@ posevae/data/moons_0.2_validation.mat
 posevae/data/mnist_training.mat
 posevae/data/mnist_validation.mat
 posevae/data/mnist_testing.mat
+mnistvae/data/mnist_training.mat
+mnistvae/data/mnist_validation.mat
+mnistvae/data/mnist_testing.mat
