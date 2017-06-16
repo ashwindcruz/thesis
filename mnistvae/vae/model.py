@@ -10,6 +10,7 @@ from chainer import cuda
 
 from util import gaussian_kl_divergence_standard
 from util import gaussian_logp
+from util import bernoulli_logp
 
 
 class VAE(chainer.Chain):
@@ -27,8 +28,7 @@ class VAE(chainer.Chain):
             plin1 = L.Linear(2*dim_hidden, dim_hidden),
             plin2 = L.Linear(2*dim_hidden, dim_hidden),
             plin3 = L.Linear(2*dim_hidden, dim_hidden),
-            plin_mu = L.Linear(2*dim_hidden, dim_in),
-            plin_ln_var = L.Linear(2*dim_hidden, dim_in),
+            plin_ln_ber_prob = L.Linear(2*dim_hidden, dim_in),
         )
         self.num_zsamples = num_zsamples
         self.temperature = temperature
@@ -48,8 +48,7 @@ class VAE(chainer.Chain):
         h = F.crelu(self.plin2(h))
         h = F.crelu(self.plin3(h))
 
-        self.pmu = self.plin_mu(h)
-        self.pln_var = self.plin_ln_var(h)
+        self.pln_ber_prob = self.plin_ln_ber_prob(h)
 
     def __call__(self, x):
         # Compute q(z|x)
@@ -59,11 +58,14 @@ class VAE(chainer.Chain):
 
         decoding_time_average = 0.
 
-        self.kl = gaussian_kl_divergence_standard(self.qmu, self.qln_var)
+        self.kl = 0
         self.logp = 0
         for j in xrange(self.num_zsamples):
             # z ~ q(z|x)
             z = F.gaussian(self.qmu, self.qln_var)
+
+            # Compute log q(z|x)
+            encoder_log = gaussian_logp(z, self.qmu, self.qln_var)
 
             # Compute p(x|z)
             decoding_time = time.time()
@@ -71,14 +73,20 @@ class VAE(chainer.Chain):
             decoding_time = time.time() - decoding_time
             decoding_time_average += decoding_time
 
+            # Computer p(z)
+            prior_log = gaussian_logp(z, 0*self.qmu, self.qln_var/self.qln_var)
+
             # Compute objective
-            self.logp += gaussian_logp(x, self.pmu, self.pln_var)
+            self.kl += (encoder_log-prior_log)
+            self.logp += bernoulli_logp(x, self.pln_ber_prob)
 
         current_temperature = min(self.temperature['value'],1.0)
         self.temperature['value'] += self.temperature['increment']
 
         decoding_time_average /= self.num_zsamples
         self.logp /= self.num_zsamples
+        self.kl /= self.num_zsamples
+        # pdb.set_trace()
         self.obj_batch = self.logp - (current_temperature*self.kl)
         self.timing_info = np.array([encoding_time,decoding_time_average])
 

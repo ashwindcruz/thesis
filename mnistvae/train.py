@@ -50,9 +50,9 @@ import chainer.functions as F
 import cupy
 
 from vae import model as vae 
-from iwae import model as iwae 
-from householder import model as householder
-from planar import model as planar 
+#from iwae import model as iwae 
+#from householder import model as householder
+#from planar import model as planar 
 
 import util
 

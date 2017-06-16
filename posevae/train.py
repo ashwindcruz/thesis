@@ -27,6 +27,11 @@ Options:
   --vae-samples <zcount>        Number of samples in VAE/IWAE z [default: 1].
   --trans <trans>               Number of Householder flow transformations to apply. Only applicable with householder and planar model [default: 2]. 
   --data <data>                 Prefix of mat files that will be used for training and testing. 
+  --init-temp <init-temp>       Initial KL temperature [default: 0].
+  --temp-epoch <temp-epoch>     Number of epochs used to increase temperature from init-temp to 1 [default: 200].
+  --init-learn <init-learn>     Initial learning rate [default: 1e-3].
+  --learn-decay <learn-decay>   Learning rate decay [default: 1e-3].
+  --weight-decay <weight-decay> Weight decay value for regularization [default: 0].
 
 The data.mat file must contain a (N,d) array of N instances, d dimensions
 each.
@@ -87,8 +92,8 @@ print "Recording training and testing ELBO every %d batches" % log_interval
 
 # Provide initial temperature and number of epochs for the schedule
 temperature = {}
-temperature['value'] = 0.
-temperature_epochs = 200
+temperature['value'] = float(args['--init-temp'])
+temperature_epochs = float(args['--temp-epoch'])
 temperature['increment'] = (1.0-temperature['value'])/temperature_epochs
 
 # Check which model was specified
@@ -107,14 +112,13 @@ elif model_type=='planar':
     vae = planar.VAE(d, nhidden, nlatent, zcount, nmap)
 
 # Set up learning rate parameters. Specifically, there is an exponential decay on the learning rate and the parameters for those are set here.
-alpha_0 = 1e-3
-k_decay = 0
-
+alpha_0 = float(args['--init-learn'])
+k_decay = float(args['--learn-decay'])
 
 opt = optimizers.Adam(alpha=alpha_0)
 opt.setup(vae)
 opt.add_hook(chainer.optimizer.GradientClipping(4.0))
-opt.add_hook(chainer.optimizer.WeightDecay(0.0))
+opt.add_hook(chainer.optimizer.WeightDecay(float(args['--weight-decay'])))
 
 # Move to GPU
 gpu_id = int(args['--device'])

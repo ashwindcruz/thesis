@@ -102,7 +102,7 @@ class VAE(chainer.Chain):
         logps = F.stack(self.w_holder)
         self.obj_batch = F.logsumexp(logps, axis=0) - np.log(self.num_zsamples)
         self.kl /= self.num_zsamples
-        self.kl /= self.num_zsamples
+        self.logp /= self.num_zsamples
         
         decoding_time_average /= self.num_zsamples
         

@@ -10,6 +10,7 @@ import chainer
 from chainer import cuda
 from chainer.cuda import cupy
 import chainer.functions as F
+from chainer.functions.activation import softplus
 #import cuda
 
 xp = cuda.cupy
@@ -42,7 +43,6 @@ def gaussian_logp(x, mu, ln_var):
     logp_sum = -0.5*(F.sum((xc*xc) / S, axis=1) + F.sum(ln_var, axis=1)
         + D/batch_size*math.log(2.0*math.pi))
 
-
     return logp_sum #/ batchsize
 
 def gaussian_kl_divergence(z_0, z_0_mu, z_0_ln_var, z_T):
@@ -52,6 +52,16 @@ def gaussian_kl_divergence(z_0, z_0_mu, z_0_ln_var, z_T):
     kl_loss = logp_q - logp_p
 
     return kl_loss
+
+def bernoulli_logp(x, ln_ber_prob):
+    """logB(x;p)"""
+    dim_size = x.data.shape[1]
+
+    ber_prob = F.exp(ln_ber_prob)
+    logp = softplus.softplus(ber_prob) - x * ber_prob
+    print(ber_prob.data)
+    logp = F.sum(logp, axis=1)/dim_size
+    return -logp
 
 # Function to evaluate average ELBO, SEM and timing for a particular dataset. 
 def evaluate_dataset(vae_model, dataset, batch_size, log_file, backward, opt):
