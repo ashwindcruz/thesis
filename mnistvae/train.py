@@ -27,6 +27,11 @@ Options:
   --vae-samples <zcount>        Number of samples in VAE/IWAE z [default: 1].
   --trans <trans>               Number of Householder flow transformations to apply. Only applicable with householder and planar model [default: 2]. 
   --data <data>                 Prefix of mat files that will be used for training and testing. 
+  --init-temp <init-temp>       Initial KL temperature [default: 0].
+  --temp-epoch <temp-epoch>     Number of epochs used to increase temperature from init-temp to 1 [default: 200].
+  --init-learn <init-learn>     Initial learning rate [default: 1e-3].
+  --learn-decay <learn-decay>   Learning rate decay [default: 1e-3].
+  --weight-decay <weight-decay> Weight decay value for regularization [default: 0].
 
 The data.mat file must contain a (N,d) array of N instances, d dimensions
 each.
@@ -50,9 +55,9 @@ import chainer.functions as F
 import cupy
 
 from vae import model as vae 
-#from iwae import model as iwae 
-#from householder import model as householder
-#from planar import model as planar 
+# from iwae import model as iwae 
+# from householder import model as householder
+# from planar import model as planar 
 
 import util
 
@@ -87,8 +92,8 @@ print "Recording training and testing ELBO every %d batches" % log_interval
 
 # Provide initial temperature and number of epochs for the schedule
 temperature = {}
-temperature['value'] = 0.
-temperature_epochs = 200
+temperature['value'] = float(args['--init-temp'])
+temperature_epochs = float(args['--temp-epoch'])
 temperature['increment'] = (1.0-temperature['value'])/temperature_epochs
 
 # Check which model was specified
@@ -107,14 +112,13 @@ elif model_type=='planar':
     vae = planar.VAE(d, nhidden, nlatent, zcount, nmap)
 
 # Set up learning rate parameters. Specifically, there is an exponential decay on the learning rate and the parameters for those are set here.
-alpha_0 = 1e-3
-k_decay = 0
-
+alpha_0 = float(args['--init-learn'])
+k_decay = float(args['--learn-decay'])
 
 opt = optimizers.Adam(alpha=alpha_0)
 opt.setup(vae)
 opt.add_hook(chainer.optimizer.GradientClipping(4.0))
-opt.add_hook(chainer.optimizer.WeightDecay(0.0))
+opt.add_hook(chainer.optimizer.WeightDecay(float(args['--weight-decay'])))
 
 # Move to GPU
 gpu_id = int(args['--device'])
@@ -246,33 +250,33 @@ with cupy.cuda.Device(gpu_id):
             util.print_compute_graph(directory + '/' + args['--vis'], g)
 
         # Sample a set of poses
-        if (bi%sample_every_epoch==0):
-            counter +=1
-            print "   # sampling"
-            z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
-            z = chainer.Variable(xp.asarray(z, dtype=np.float32))
-            vae.decode(z)
-            Xsample = F.gaussian(vae.pmu, vae.pln_var)
-            Xsample.to_cpu()
-            sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
-            vae.pmu.to_cpu()
-            sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
+        # if (bi%sample_every_epoch==0):
+        #     counter +=1
+        #     print "   # sampling"
+        #     z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
+        #     z = chainer.Variable(xp.asarray(z, dtype=np.float32))
+        #     vae.decode(z)
+        #     Xsample = F.gaussian(vae.pmu, vae.pln_var)
+        #     Xsample.to_cpu()
+        #     sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
+        #     vae.pmu.to_cpu()
+        #     sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
             
 # Record final information 
 
 util.evaluate_dataset(vae, X_train, batch_size, train_log_file, False, opt)
 util.evaluate_dataset(vae, X_validation, batch_size, test_log_file, False, opt)  
 
-counter +=1
-print "   # sampling"
-z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
-z = chainer.Variable(xp.asarray(z, dtype=np.float32))
-vae.decode(z)
-Xsample = F.gaussian(vae.pmu, vae.pln_var)
-Xsample.to_cpu()
-sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
-vae.pmu.to_cpu()
-sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
+# counter +=1
+# print "   # sampling"
+# z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
+# z = chainer.Variable(xp.asarray(z, dtype=np.float32))
+# vae.decode(z)
+# Xsample = F.gaussian(vae.pmu, vae.pln_var)
+# Xsample.to_cpu()
+# sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
+# vae.pmu.to_cpu()
+# sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
 
 # Save model
 if args['-o'] is not None:

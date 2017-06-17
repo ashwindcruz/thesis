@@ -11,5 +11,7 @@
 #	done
 #done
 
-./train.py -g 0 -o mnist_1 --model-type vae --vae-samples 1 --trans 2 --nlatent 32 --nhidden 512 -b 1024 --batch-limit 50000 -t 300 --time-print 1 --epoch-sample 10 --log-interval 100 --data mnist
 #	
+./train.py -g 0 -o mnist_1 --model-type vae --vae-samples 1 --trans 1 --nlatent 32 --nhidden 512 \
+-b 128 --batch-limit 5 -t 300 --time-print 1 --epoch-sample 10 --log-interval 100 --data mnist\
+ --init-temp 0 --temp-epoch 600 --init-learn 1e-4 --learn-decay 3e-3 --weight-decay 0
