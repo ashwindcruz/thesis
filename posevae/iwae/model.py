@@ -4,7 +4,6 @@ import math
 import numpy as np
 import time
 
-
 import chainer
 import chainer.functions as F
 import chainer.links as L

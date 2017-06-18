@@ -28,7 +28,7 @@ class VAE(chainer.Chain):
             plin1 = L.Linear(2*dim_hidden, dim_hidden),
             plin2 = L.Linear(2*dim_hidden, dim_hidden),
             plin3 = L.Linear(2*dim_hidden, dim_hidden),
-            plin_ln_ber_prob = L.Linear(2*dim_hidden, dim_in),
+            plin_ber_prob = L.Linear(2*dim_hidden, dim_in),
         )
         self.num_zsamples = num_zsamples
         self.temperature = temperature
@@ -48,10 +48,11 @@ class VAE(chainer.Chain):
         h = F.crelu(self.plin2(h))
         h = F.crelu(self.plin3(h))
 
-        self.pln_ber_prob = self.plin_ln_ber_prob(h)
+        self.p_ber_prob = F.sigmoid(self.plin_ber_prob(h))
 
     def __call__(self, x):
         # Compute q(z|x)
+        pdb.set_trace()
         encoding_time = time.time()
         self.encode(x)
         encoding_time = float(time.time() - encoding_time)
@@ -63,7 +64,7 @@ class VAE(chainer.Chain):
         for j in xrange(self.num_zsamples):
             # z ~ q(z|x)
             z = F.gaussian(self.qmu, self.qln_var)
-
+            pdb.set_trace()
             # Compute log q(z|x)
             encoder_log = gaussian_logp(z, self.qmu, self.qln_var)
 
@@ -78,7 +79,7 @@ class VAE(chainer.Chain):
 
             # Compute objective
             self.kl += (encoder_log-prior_log)
-            self.logp += bernoulli_logp(x, self.pln_ber_prob)
+            self.logp += bernoulli_logp(x, self.p_ber_prob)
 
         current_temperature = min(self.temperature['value'],1.0)
         self.temperature['value'] += self.temperature['increment']

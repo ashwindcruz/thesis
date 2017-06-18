@@ -45,6 +45,14 @@ def gaussian_logp(x, mu, ln_var):
 
     return logp_sum #/ batchsize
 
+def gaussian_logp0(x):
+    """log N(x ; 0, 1)"""
+    D = x.data.size
+    batch_size = x.data.shape[0]
+
+    logp_sum = -0.5*(F.sum(x*x, axis=1) + D/batch_size*math.log(2.0*math.pi))
+    return logp_sum 
+
 def gaussian_kl_divergence(z_0, z_0_mu, z_0_ln_var, z_T):
     """D_{KL}(q(z_0|x) || p(z_T))"""
     logp_q = gaussian_logp(z_0, z_0_mu, z_0_ln_var)

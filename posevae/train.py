@@ -54,7 +54,8 @@ from chainer import computational_graph
 import chainer.functions as F
 import cupy
 
-from vae import model as vae 
+from vae import model as vae
+from iaf import model as iaf 
 from iwae import model as iwae 
 from householder import model as householder
 from planar import model as planar 
@@ -110,6 +111,8 @@ elif model_type=='planar':
     nmap = int(args['--trans'])
     print 'Using %d Planar flow mappings' % nmap
     vae = planar.VAE(d, nhidden, nlatent, zcount, nmap)
+elif model_type=='iaf':
+    vae = iaf.VAE(d, nhidden, nlatent, temperature, zcount)
 
 # Set up learning rate parameters. Specifically, there is an exponential decay on the learning rate and the parameters for those are set here.
 alpha_0 = float(args['--init-learn'])
