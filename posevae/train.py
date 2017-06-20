@@ -242,7 +242,7 @@ with cupy.cuda.Device(gpu_id):
                 print('##################### Saving Model Checkpoint     #####################')
 
                 batch_number = str(bi).zfill(6)
-                modelfile = directory + '/_' + batch_number + '.h5'
+                modelfile = directory + '/' + batch_number + '.h5'
                 print "Writing model checkpoint to '%s' ..." % (modelfile)
                 serializers.save_hdf5(modelfile, vae)
 
