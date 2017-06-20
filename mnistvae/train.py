@@ -249,19 +249,21 @@ with cupy.cuda.Device(gpu_id):
             g = computational_graph.build_computational_graph([obj])
             util.print_compute_graph(directory + '/' + args['--vis'], g)
 
-        # Sample a set of poses
-        # if (bi%sample_every_epoch==0):
-        #     counter +=1
-        #     print "   # sampling"
-        #     z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
-        #     z = chainer.Variable(xp.asarray(z, dtype=np.float32))
-        #     vae.decode(z)
-        #     Xsample = F.gaussian(vae.pmu, vae.pln_var)
-        #     Xsample.to_cpu()
-        #     sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
-        #     vae.pmu.to_cpu()
-        #     sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
+        # Sample a set of digits
+        if (bi%sample_every_epoch==0):
+            counter +=1
+            print "   # sampling"
+            z = np.random.normal(loc=0.0, scale=1.0, size=(8,nlatent))
+            z = chainer.Variable(xp.asarray(z, dtype=np.float32))
+            vae.decode(z)
+            Xsample_ber_prob = (F.sigmoid(vae.p_ber_prob_logit))
+            Xsample_ber_prob.to_cpu()
+            Xsample_ber_prob = Xsample_ber_prob.data
+            Xsample = np.random.binomial(1, p=Xsample_ber_prob)
             
+            # Xsample.to_cpu()
+            sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample})
+                    
 # Record final information 
 
 util.evaluate_dataset(vae, X_train, batch_size, train_log_file, False, opt)

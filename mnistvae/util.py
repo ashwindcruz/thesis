@@ -53,12 +53,12 @@ def gaussian_kl_divergence(z_0, z_0_mu, z_0_ln_var, z_T):
 
     return kl_loss
 
-def bernoulli_logp(x, ber_prob):
+def bernoulli_logp(x, ber_prob_logit):
     """logB(x;p)"""
 
-    logp = softplus.softplus(ber_prob) - x * ber_prob
+    logp = softplus.softplus(ber_prob_logit) - x * ber_prob_logit
     logp = F.sum(logp, axis=1) 
-    pdb.set_trace()
+    # pdb.set_trace()
     return -logp
 
 # Function to evaluate average ELBO, SEM and timing for a particular dataset. 
