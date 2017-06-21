@@ -25,8 +25,8 @@ with open(exp_folder+'/train_log.txt', 'r') as f:
 	for line in f: 
 		data = line.split(',')
 		training_data.append(float(data[0]))
-		trainingMeanLowerBound.append(float(data[0]) - 1.96*float(data[1]))
-		trainingMeanUpperBound.append(float(data[0]) + 1.96*float(data[1]))
+		# trainingMeanLowerBound.append(float(data[0]) - 1.96*float(data[1]))
+		# trainingMeanUpperBound.append(float(data[0]) + 1.96*float(data[1]))
 
 testing_data = []
 testingMeanLowerBound = []
@@ -38,8 +38,8 @@ with open(exp_folder+'/test_log.txt', 'r') as f:
 	for line in f: 
 		data = line.split(',')
 		testing_data.append(float(data[0]))
-		testingMeanLowerBound.append(float(data[0]) - 1.96*float(data[1]))
-		testingMeanUpperBound.append(float(data[0]) + 1.96*float(data[1]))
+		# testingMeanLowerBound.append(float(data[0]) - 1.96*float(data[1]))
+		# testingMeanUpperBound.append(float(data[0]) + 1.96*float(data[1]))
 
 #		difference.append(training_data[counter]-float(data[0]))
 #		counter += 1
@@ -62,8 +62,8 @@ with open(exp_folder+'/online_log.txt', 'r') as f:
 	for line in f: 
 		data = line.split(',')
 		online_data.append(float(data[0]))
-		onlineMeanLowerBound.append(float(data[0]) - 1.96*float(data[1]))
-		onlineMeanUpperBound.append(float(data[0]) + 1.96*float(data[1]))
+		# onlineMeanLowerBound.append(float(data[0]) - 1.96*float(data[1]))
+		# onlineMeanUpperBound.append(float(data[0]) + 1.96*float(data[1]))
 		
 
 plt.figure()

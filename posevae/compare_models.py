@@ -5,12 +5,14 @@ matplotlib.use('agg')
 from matplotlib import pyplot as plt
 import sys
 
-column  = 6
-exp_folder_1= './long_6/'
+column  = 0
+exp_folder_1= sys.argv[1]
+run_number = sys.argv[2]
+file = sys.argv[3]
 
 # Gather ELBOs for the online performance
 online_data_1 = []
-with open(exp_folder_1+'/vae_long_6_results/online_log.txt', 'r') as f:
+with open(exp_folder_1+'/vae_long_' + sys.argv[2] + '_results/' + file + '_log.txt', 'r') as f:
 	f.readline()
 	for line in f: 
 		data = line.split(',')
@@ -19,7 +21,7 @@ with open(exp_folder_1+'/vae_long_6_results/online_log.txt', 'r') as f:
 # Gather ELBOs for the online performance
 online_data_2 = []
 
-with open(exp_folder_1+'/iwae_long_6_results/online_log.txt', 'r') as f:
+with open(exp_folder_1+'/iwae_long_' + sys.argv[2] + '_results/' + file + '_log.txt', 'r') as f:
 	f.readline()
 	for line in f: 
 		data = line.split(',')
@@ -28,22 +30,22 @@ with open(exp_folder_1+'/iwae_long_6_results/online_log.txt', 'r') as f:
 # Gather ELBOs for the online performance
 online_data_3 = []
 
-with open(exp_folder_1+'/householder_long_6_results/online_log.txt', 'r') as f:
-	f.readline()
-	for line in f: 
-		data = line.split(',')
-		online_data_3.append(float(data[column]))
+# with open(exp_folder_1+'/householder_long_' + sys.argv[2] + '_results/' + file + '_log.txt', 'r') as f:
+# 	f.readline()
+# 	for line in f: 
+# 		data = line.split(',')
+# 		online_data_3.append(float(data[column]))
 
 print(len(online_data_1))
 print(len(online_data_2))
-print(len(online_data_3))
+# print(len(online_data_3))
 
 max_results = len(online_data_1)
 
 
 plt.figure()
-plt.plot(online_data_1[10:max_results], label='vae')
-plt.plot(online_data_2[10:max_results], label='iwae')
-plt.plot(online_data_3[10:max_results], label='householder')
+plt.plot(online_data_1[10:], label='vae')
+plt.plot(online_data_2[10:], label='iwae')
+# plt.plot(online_data_3[10:], label='householder')
 plt.legend(loc='lower right')
-plt.savefig(exp_folder_1+ '/compare_backward_results.png')
+plt.savefig(exp_folder_1+ '/compare_' + file + '_' + run_number + '_ELBO.png')
