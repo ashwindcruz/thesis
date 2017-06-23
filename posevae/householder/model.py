@@ -14,7 +14,7 @@ from util import gaussian_kl_divergence
 
 
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, temperature, num_zsamples=1, house_degree=1):
+    def __init__(self, dim_in, dim_hidden, dim_latent, temperature, house_degree=1, num_zsamples=1):
         super(VAE, self).__init__(
             # encoder
             qlin0 = L.Linear(dim_in, dim_hidden),
@@ -37,6 +37,8 @@ class VAE(chainer.Chain):
         self.temperature = temperature
         self.num_zsamples = num_zsamples
         self.house_degree = house_degree
+
+        self.epochs_seen = 0
 
     def encode(self, x):
         h = F.crelu(self.qlin0(x))

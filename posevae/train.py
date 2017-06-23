@@ -32,6 +32,8 @@ Options:
   --init-learn <init-learn>     Initial learning rate [default: 1e-3].
   --learn-decay <learn-decay>   Learning rate decay [default: 1e-3].
   --weight-decay <weight-decay> Weight decay value for regularization [default: 0].
+  --init-model <init-model>     Initialize using a pre-trained model [default: none]
+  --init-opt <init-opt>         Initialize using a previous optimizer [default: none]
 
 The data.mat file must contain a (N,d) array of N instances, d dimensions
 each.
@@ -106,7 +108,7 @@ elif model_type=='iwae':
 elif model_type=='householder':
     hdegree = int(args['--trans'])
     print 'Using %d Householder flow transformations' % hdegree
-    vae = householder.VAE(d, nhidden, nlatent, temperature, zcount, hdegree)
+    vae = householder.VAE(d, nhidden, nlatent, temperature, hdegree, zcount)
 elif model_type=='planar':
     nmap = int(args['--trans'])
     print 'Using %d Planar flow mappings' % nmap
@@ -114,14 +116,30 @@ elif model_type=='planar':
 elif model_type=='iaf':
     vae = iaf.VAE(d, nhidden, nlatent, temperature, zcount)
 
+# Load in pre trained model if provided
+init_model = args['--init-model']
+if(init_model != 'none'):
+    serializers.load_hdf5(init_model, vae)
+    with h5py.File(init_model,'r') as f:
+      vae.epochs_seen = f['epochs_seen'].value
+      vae.temperature['value'] = f['temperature_value'].value
+      vae.temperature['increment'] = f['temperature_increment'].value
+    # pdb.set_trace()
 # Set up learning rate parameters. Specifically, there is an exponential decay on the learning rate and the parameters for those are set here.
 alpha_0 = float(args['--init-learn'])
 k_decay = float(args['--learn-decay'])
 
 opt = optimizers.Adam(alpha=alpha_0)
+
+# Load in previously used optimizer if provided
+if(args['--init-opt'] != 'none'):
+    serializers.load_hdf5(args['--init-opt'], opt)
+
 opt.setup(vae)
 opt.add_hook(chainer.optimizer.GradientClipping(4.0))
 opt.add_hook(chainer.optimizer.WeightDecay(float(args['--weight-decay'])))
+
+opt.alpha = alpha_0*math.exp(-k_decay*vae.epochs_seen)
 
 # Move to GPU
 gpu_id = int(args['--device'])
@@ -138,7 +156,7 @@ batch_size = int(args['--batchsize'])
 print "Using a batchsize of %d instances" % batch_size
 batch_limit = int(args['--batch-limit'])
 if batch_limit!=-1:
-    print "Limiting training to run for %d batches" % batch_limit
+    print "Limiting training to run for %d epochs" % batch_limit
 
 start_at = time.time()
 period_start_at = start_at
@@ -217,9 +235,9 @@ with cupy.cuda.Device(gpu_id):
             period_bi = 0
 
         X_online = np.random.permutation(X_train)
+        # pdb.set_trace()
         vae = util.evaluate_dataset(vae, X_online, batch_size, online_log_file, True, opt)
                 
-
         # If the model breaks, skip this training iteration
         if(math.isnan(vae.obj.data)):
             bi -=1
@@ -227,8 +245,11 @@ with cupy.cuda.Device(gpu_id):
             
         obj_mean += vae.obj.data
         obj_count += 1
-        opt.alpha = alpha_0*math.exp(-k_decay*bi)
+        vae.epochs_seen += 1
+        # pdb.set_trace()
+        opt.alpha = alpha_0*math.exp(-k_decay*vae.epochs_seen)
 
+        # pdb.set_trace()
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
         if((bi-1)%log_interval==0):
@@ -291,3 +312,12 @@ if args['-o'] is not None:
     modelfile = directory + '/' + args['-o'] + '.h5'
     print "Writing final model to '%s' ..." % (modelfile)
     serializers.save_hdf5(modelfile, vae)
+    with h5py.File(modelfile,'a') as f:
+      f['epochs_seen'] = vae.epochs_seen
+      f['temperature_incrememt'] = vae.temperature['increment']
+      f['temperature_value'] = vae.temperature['value']
+
+    # Possibly unnecessary as at the start, alpha is set appropripately using the store vae.epochs_seen value
+    opt_file = directory + '/opt_' + args['-o'] + '.h5'
+    print "Writing optimizer to '%s' ..." % (opt_file)
+    serializers.save_hdf5(opt_file, opt)

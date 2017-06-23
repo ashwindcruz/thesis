@@ -12,8 +12,8 @@
 #done
 for i in `seq 1 3`;
 do
-./train_1.py -g 0 -o 10_transform_2_run_$i --model-type householder --vae-samples 1 --trans 10 --nlatent 16 --nhidden 512 \
+./train.py -g 0 -o 10_transform_part_2_run_$i --model-type householder --vae-samples 1 --trans 10 --nlatent 16 --nhidden 512 \
 -b 8192 --batch-limit 100 -t 18000 --time-print 600 --epoch-sample 200 --log-interval 5 --data pose\
- --init-temp 0 --temp-epoch 200 --init-learn 1e-4 --learn-decay 3e-3 --weight-decay 0 --init-model init_house_$i.h5 --init-opt none
+ --init-temp 0 --temp-epoch 200 --init-learn 1e-4 --learn-decay 3e-3 --weight-decay 0 --init-model init_householder_10t_part_2_run_$i.h5 --init-opt none
 done
 #	

@@ -30,8 +30,9 @@ class VAE(chainer.Chain):
             plin_mu = L.Linear(2*dim_hidden, dim_in),
             plin_ln_var = L.Linear(2*dim_hidden, dim_in),
         )
-        self.num_zsamples = num_zsamples
         self.temperature = temperature
+        self.num_zsamples = num_zsamples
+        self.epochs_seen = 0
 
     def encode(self, x):
         h = F.crelu(self.qlin0(x))
