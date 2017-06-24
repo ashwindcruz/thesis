@@ -122,7 +122,7 @@ if(init_model != 'none'):
     serializers.load_hdf5(init_model, vae)
     with h5py.File(init_model,'r') as f:
       vae.epochs_seen = f['epochs_seen'].value
-      vae.temperature['value'] = f['temperature_value'].value
+      vae.temperature['value'] = f['temperature_value'].value 
       vae.temperature['increment'] = f['temperature_increment'].value
     # pdb.set_trace()
 # Set up learning rate parameters. Specifically, there is an exponential decay on the learning rate and the parameters for those are set here.
@@ -139,7 +139,7 @@ opt.setup(vae)
 opt.add_hook(chainer.optimizer.GradientClipping(4.0))
 opt.add_hook(chainer.optimizer.WeightDecay(float(args['--weight-decay'])))
 
-opt.alpha = alpha_0*math.exp(-k_decay*vae.epochs_seen)
+opt.alpha = alpha_0*math.exp(-k_decay*(vae.epochs_seen-1))
 
 # Move to GPU
 gpu_id = int(args['--device'])
@@ -227,7 +227,7 @@ with cupy.cuda.Device(gpu_id):
                 obj_count+=1
             EO = -obj_mean / obj_count
             print "   %.1fs of %.1fs  [%d] epoch %d, E[obj] %.4f, KL %.4f, Logp %.4f,  %.2f S/s, %d total" % \
-                  (tpassed, runtime, printcount, bi, EO, xp.mean(vae.kl.data), xp.mean(vae.logp.data), tput, total)
+                  (tpassed, runtime, printcount, (bi-1), EO, xp.mean(vae.kl.data), xp.mean(vae.logp.data), tput, total)
 
             period_start_at = now
             obj_mean = 0.0
