@@ -13,7 +13,7 @@ from util import gaussian_logp
 #xp = cuda.cupy
 
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, num_zsamples, num_maps):
+    def __init__(self, dim_in, dim_hidden, dim_latent, temperature, num_maps, num_zsamples,):
         super(VAE, self).__init__(
             # encoder
             qlin0 = L.Linear(dim_in, dim_hidden),
@@ -22,6 +22,10 @@ class VAE(chainer.Chain):
             qlin3 = L.Linear(2*dim_hidden, dim_hidden),
             qlin_mu = L.Linear(2*dim_hidden, dim_latent),
             qlin_ln_var = L.Linear(2*dim_hidden, dim_latent),
+            # flow 
+            linearity_W = L.Scale(axis=1, W_shape=(dim_latent), bias_term=False),
+            linearity_b = L.Bias(axis=0, shape=(1)),
+            scaling = L.Scale(axis=1, W_shape=(dim_latent), bias_term=False),
             # decoder
             plin0 = L.Linear(dim_latent, dim_hidden),
             plin1 = L.Linear(2*dim_hidden, dim_hidden),
@@ -30,19 +34,21 @@ class VAE(chainer.Chain):
             plin_mu = L.Linear(2*dim_hidden, dim_in),
             plin_ln_var = L.Linear(2*dim_hidden, dim_in),
         )
+        self.temperature = temperature
         self.num_zsamples = num_zsamples
+        self.epochs_seen  = 0
         # planar mappings
         #cuda.check_cuda_available()
         #xp = cuda.cupy
-        self.planar_maps = []
-        for i in range(num_maps):
+        # self.planar_maps = []
+        # for i in range(num_maps):
             #mapping = {'linearity': L.Linear(dim_latent, dim_latent, nobias=False), 'scaling': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False) }
-            mapping = {'linearity_W': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False), 'linearity_b': L.Bias(axis=0, shape=(1)), \
-             'scaling': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False) }
-            self.planar_maps.append(mapping) 
-            self.planar_maps[i]['linearity_W'].to_gpu(0)
-            self.planar_maps[i]['linearity_b'].to_gpu(0)
-            self.planar_maps[i]['scaling'].to_gpu(0)
+            # mapping = {'linearity_W': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False), 'linearity_b': L.Bias(axis=0, shape=(1)), \
+            #  'scaling': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False) }
+            # self.planar_maps.append(mapping) 
+            # self.planar_maps[i]['linearity_W'].to_gpu(0)
+            # self.planar_maps[i]['linearity_b'].to_gpu(0)
+            # self.planar_maps[i]['scaling'].to_gpu(0)
 
             #pdb.set_trace()
     def encode(self, x):
@@ -109,13 +115,27 @@ class VAE(chainer.Chain):
         decoding_time_average = 0.
 
         self.logp = 0
+
+        current_temperature = min(self.temperature['value'],1.0)
+        self.temperature['value'] += self.temperature['increment']
+
         for j in xrange(self.num_zsamples):
             # Sample z ~ q(z_0|x)
             z_0 = F.gaussian(self.qmu, self.qln_var)
 
             # Perform planar flow mappings, Equation (10)
             decoding_time = time.time()
-            z_K = self.planar_flows(z_0)
+            h = self.linearity_W(z_0)
+            h = F.sum(h,axis=(1))
+            h = self.linearity_b(h)
+            h = F.tanh(h)
+            h_tanh = h # Store for use in ELBO
+
+            dim_latent = z_0.shape[1]
+            h = F.transpose(F.tile(h,(dim_latent,1)))
+            h = self.scaling(h)
+
+            z_K = z_0 + h
 
             # Obtain parameters for p(x|z_K)
             pmu, pln_var =  self.decode(z_K)
@@ -124,7 +144,6 @@ class VAE(chainer.Chain):
 
             # Compute log q(z_0)
             q_prior_log = gaussian_logp(z_0, qmu*0, qln_var/qln_var)
-
             
             # Compute log p(x|z_K)
             decoder_log = gaussian_logp(x, pmu, pln_var)
@@ -135,24 +154,25 @@ class VAE(chainer.Chain):
             joint_log = decoder_log + p_prior_log
 
             # Compute second term of log q(z_K)
-            trans_log = 0
-            for k in range(len(self.z_trans)-1):
-                #pdb.set_trace()
-                lodget_jacobian_scaled = self.planar_maps[k]['scaling'](self.planar_maps[k]['lodget_jacobian'])
-                lodget_jacobian_scaled = F.sum(lodget_jacobian_scaled, axis=1)
-                #pdb.set_trace()
-                trans_log += F.log(1+lodget_jacobian_scaled)
+            # pdb.set_trace()
+            h_tanh_derivative = 1-(h_tanh*h_tanh)
+            h_tanh_derivative = F.transpose(F.tile(h_tanh_derivative, (dim_latent,1))) 
+            phi = self.linearity_W(h_tanh_derivative) # Equation (11)
+            lodget_jacobian = F.sum(self.scaling(phi), axis=1)
+            q_K_log = F.log(1 + lodget_jacobian)
+            
 
-            #self.logp += gaussian_logp(x, self.pmu, self.pln_var)
-
-        #self.logp /= self.num_zsamples
-        #self.obj = self.kl - self.logp
-        # batch_size = trans_log.shape[0]
-        # trans_log = F.sum(trans_log, axis=0)/batch_size
         decoding_time_average /= self.num_zsamples
         # pdb.set_trace()
-        self.obj = -((q_prior_log -joint_log) - trans_log)
-        timing_info = np.array([encoding_time,decoding_time])
+        self.obj_batch = ((q_prior_log -joint_log) - q_K_log)
+        batch_size = self.obj_batch.shape[0]
+
+        self.obj = F.sum(self.obj_batch)/batch_size
+
+        self.kl = self.obj_batch
+        self.logp = self.obj_batch
+
+        self.timing_info = np.array([encoding_time,decoding_time])
         
-        return self.obj, timing_info
+        return self.obj
 

@@ -42,6 +42,7 @@ class VAE(chainer.Chain):
         )
         self.num_zsamples = num_zsamples
         self.temperature = temperature
+        self.epochs_seen = 0
 
     def encode(self, x):
         h = F.crelu(self.qlin0(x))
@@ -77,11 +78,18 @@ class VAE(chainer.Chain):
         self.encode(x)
         encoding_time = float(time.time() - encoding_time)
 
-        self.logp = 0
+        self.logp_xz = 0
         self.logq = 0
+
+        # For reporting purposes only
+        self.logp = 0
+        self.kl = 0
 
         decoding_time_average = 0.
 
+        current_temperature = min(self.temperature['value'],1.0)
+        self.temperature['value'] += self.temperature['increment']
+        
         for j in xrange(self.num_zsamples):
             # z ~ q(z|x)
             z = F.gaussian(self.qmu, self.qln_var)
@@ -96,6 +104,7 @@ class VAE(chainer.Chain):
             z, delta_logq3 = self.iaf(z, self.qh, self.qiaf3a, self.qiaf3b)
             # pdb.set_trace()
             self.logq += delta_logq1 + delta_logq2 + delta_logq3
+            self.logq *= current_temperature
 
             # Compute p(x|z)
             self.decode(z)
@@ -103,19 +112,28 @@ class VAE(chainer.Chain):
             decoding_time = time.time() - decoding_time
             decoding_time_average += decoding_time
 
-            # Compute objective
-            self.logp += gaussian_logp(x, self.pmu, self.pln_var)
-            self.logp += gaussian_logp0(z)
+            # Compute objective, p(x,z)
+            logz_given_x = gaussian_logp(x, self.pmu, self.pln_var) # p(x|z)
+            logz = (current_temperature*gaussian_logp0(z)) # p(z)
+            self.logp_xz += (logz_given_x + logz)
 
-        current_temperature = min(self.temperature['value'],1.0)
-        self.temperature['value'] += self.temperature['increment']
+            # For reporting purposes only
+            self.logp += logz_given_x
+            self.kl += (self.logq - logz) 
+
+
 
         decoding_time_average /= self.num_zsamples
-        self.logp /= self.num_zsamples
+        self.logp_xz /= self.num_zsamples
         self.logq /= self.num_zsamples
-        self.kl = self.logq # For the sake of recording
+
+        # For reporting purposes only
+        self.logp /= self.num_zsamples
+        self.kl /= self.num_zsamples
+
+
         
-        self.obj_batch = self.logp - (current_temperature*self.logq)     # variational free energy
+        self.obj_batch = self.logp_xz - self.logq     # variational free energy
         self.timing_info = np.array([encoding_time,decoding_time_average])
 
         batch_size = self.obj_batch.shape[0]

@@ -112,7 +112,7 @@ elif model_type=='householder':
 elif model_type=='planar':
     nmap = int(args['--trans'])
     print 'Using %d Planar flow mappings' % nmap
-    vae = planar.VAE(d, nhidden, nlatent, zcount, nmap)
+    vae = planar.VAE(d, nhidden, nlatent, temperature, nmap, zcount)
 elif model_type=='iaf':
     vae = iaf.VAE(d, nhidden, nlatent, temperature, zcount)
 
