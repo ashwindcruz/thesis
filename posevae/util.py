@@ -92,8 +92,9 @@ def evaluate_dataset(vae_model, dataset, batch_size, log_file, backward, opt):
       vae_model.zerograds()
       backward_timing_now = time.time()
       obj.backward()
-      opt.update()
       backward_timing += (time.time() - backward_timing_now)
+      opt.update()
+      
 
 
   # One final smaller batch to cover what couldn't be captured in the loop
@@ -110,10 +111,11 @@ def evaluate_dataset(vae_model, dataset, batch_size, log_file, backward, opt):
 
   if(backward):
       vae_model.zerograds()
-      backward_timing_now = time.time()
+      #backward_timing_now = time.time()
       vae_model.obj.backward()
+      #backward_timing += (time.time() - backward_timing_now) 
       opt.update()
-      backward_timing += (time.time() - backward_timing_now)
+     
 
   # Don't use the latest timing information as it is a different batch size. Think more about this. 
   # TODO

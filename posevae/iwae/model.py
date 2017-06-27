@@ -32,6 +32,7 @@ class VAE(chainer.Chain):
         )
         self.num_zsamples = num_zsamples
         self.temperature = temperature
+        self.epochs_seen = 0
 
     def encode(self, x):
         h = F.crelu(self.qlin0(x))
