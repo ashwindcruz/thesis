@@ -62,6 +62,12 @@ from iwae import model as iwae
 from householder import model as householder
 from planar import model as planar 
 
+from vae_mnist import model as vae_mnist
+from iaf_mnist import model as iaf_mnist
+from iwae_mnist import model as iwae_mnist
+from householder_mnist import model as householder_mnist
+from planar_mnist import model as planar_mnist
+
 import util
 
 import pdb
@@ -101,20 +107,38 @@ temperature['increment'] = (1.0-temperature['value'])/temperature_epochs
 
 # Check which model was specified
 model_type = args['--model-type']
-if model_type=='vae':
+data_type = args['--data']
+
+if data_type=='pose':
+  if model_type=='vae':
     vae = vae.VAE(d, nhidden, nlatent, temperature, zcount)
-elif model_type=='iwae':
+  elif model_type=='iwae':
     vae = iwae.VAE(d, nhidden, nlatent, temperature, zcount)
-elif model_type=='householder':
+  elif model_type=='householder':
     hdegree = int(args['--trans'])
     print 'Using %d Householder flow transformations' % hdegree
     vae = householder.VAE(d, nhidden, nlatent, temperature, hdegree, zcount)
-elif model_type=='planar':
+  elif model_type=='planar':
     nmap = int(args['--trans'])
     print 'Using %d Planar flow mappings' % nmap
     vae = planar.VAE(d, nhidden, nlatent, temperature, nmap, zcount)
-elif model_type=='iaf':
+  elif model_type=='iaf':
     vae = iaf.VAE(d, nhidden, nlatent, temperature, zcount)
+elif data_type=='mnist':
+  if model_type=='vae':
+    vae = vae_mnist.VAE(d, nhidden, nlatent, temperature, zcount)
+  elif model_type=='iwae':
+    vae = iwae_mnist.VAE(d, nhidden, nlatent, temperature, zcount)
+  elif model_type=='householder':
+    hdegree = int(args['--trans'])
+    print 'Using %d Householder flow transformations' % hdegree
+    vae = householder_mnist.VAE(d, nhidden, nlatent, temperature, hdegree, zcount)
+  elif model_type=='planar':
+    nmap = int(args['--trans'])
+    print 'Using %d Planar flow mappings' % nmap
+    vae = planar_mnist.VAE(d, nhidden, nlatent, temperature, nmap, zcount)
+  elif model_type=='iaf':
+    vae = iaf_mnist.VAE(d, nhidden, nlatent, temperature, zcount)
 
 # Load in pre trained model if provided
 init_model = args['--init-model']
@@ -274,7 +298,7 @@ with cupy.cuda.Device(gpu_id):
             util.print_compute_graph(directory + '/' + args['--vis'], g)
 
         # Sample a set of poses
-        if (bi%sample_every_epoch==0):
+        if (bi%sample_every_epoch==0) and data_type=='pose':
             counter +=1
             print "   # sampling"
             z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
@@ -285,22 +309,35 @@ with cupy.cuda.Device(gpu_id):
             sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
             vae.pmu.to_cpu()
             sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
+        elif(bi%sample_every_epoch==0) and data_type=='mnist':
+            counter +=1
+            print "   # sampling"
+            z = np.random.normal(loc=0.0, scale=1.0, size=(8,nlatent))
+            z = chainer.Variable(xp.asarray(z, dtype=np.float32))
+            vae.decode(z)
+            Xsample_ber_prob = (F.sigmoid(vae.p_ber_prob_logit))
+            Xsample_ber_prob.to_cpu()
+            Xsample_ber_prob = Xsample_ber_prob.data
+            Xsample = np.random.binomial(1, p=Xsample_ber_prob)
+            
+            # Xsample.to_cpu()
+            sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample})
             
 # Record final information 
 
 util.evaluate_dataset(vae, X_train, batch_size, train_log_file, False, opt)
 util.evaluate_dataset(vae, X_validation, batch_size, test_log_file, False, opt)  
 
-counter +=1
-print "   # sampling"
-z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
-z = chainer.Variable(xp.asarray(z, dtype=np.float32))
-vae.decode(z)
-Xsample = F.gaussian(vae.pmu, vae.pln_var)
-Xsample.to_cpu()
-sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
-vae.pmu.to_cpu()
-sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
+#counter +=1
+#print "   # sampling"
+#z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
+#z = chainer.Variable(xp.asarray(z, dtype=np.float32))
+#vae.decode(z)
+#Xsample = F.gaussian(vae.pmu, vae.pln_var)
+#Xsample.to_cpu()
+#sio.savemat('%s/samples_%d.mat' % (directory, counter), { 'X': Xsample.data })
+#vae.pmu.to_cpu()
+#sio.savemat('%s/means_%d.mat' % (directory, counter), { 'X': vae.pmu.data })
 
 # Save model
 if args['-o'] is not None:
@@ -314,10 +351,10 @@ if args['-o'] is not None:
     serializers.save_hdf5(modelfile, vae)
     with h5py.File(modelfile,'a') as f:
       f['epochs_seen'] = vae.epochs_seen
-      f['temperature_incrememt'] = vae.temperature['increment']
+      f['temperature_increment'] = vae.temperature['increment']
       f['temperature_value'] = vae.temperature['value']
 
     # Possibly unnecessary as at the start, alpha is set appropripately using the store vae.epochs_seen value
-    opt_file = directory + '/opt_' + args['-o'] + '.h5'
-    print "Writing optimizer to '%s' ..." % (opt_file)
-    serializers.save_hdf5(opt_file, opt)
+    #opt_file = directory + '/opt_' + args['-o'] + '.h5'
+    #print "Writing optimizer to '%s' ..." % (opt_file)
+    #serializers.save_hdf5(opt_file, opt)

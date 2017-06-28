@@ -27,11 +27,11 @@ class VAE(chainer.Chain):
             qiaf1a = L.Linear(2*dim_latent, dim_latent),
             qiaf1b = L.Linear(2*dim_latent, 2*dim_latent),
             # IAF
-            qiaf2a = L.Linear(2*dim_latent, dim_latent),
-            qiaf2b = L.Linear(2*dim_latent, 2*dim_latent),
+            #qiaf2a = L.Linear(2*dim_latent, dim_latent),
+            #qiaf2b = L.Linear(2*dim_latent, 2*dim_latent),
             # IAF
-            qiaf3a = L.Linear(2*dim_latent, dim_latent),
-            qiaf3b = L.Linear(2*dim_latent, 2*dim_latent),
+            # qiaf3a = L.Linear(2*dim_latent, dim_latent),
+            # qiaf3b = L.Linear(2*dim_latent, 2*dim_latent),
             # decoder
             plin0 = L.Linear(dim_latent, dim_hidden),
             plin1 = L.Linear(2*dim_hidden, dim_hidden),
@@ -100,10 +100,10 @@ class VAE(chainer.Chain):
             self.logq += gaussian_logp(z, self.qmu, self.qln_var)    # - log q(z|x)
 
             z, delta_logq1 = self.iaf(z, self.qh, self.qiaf1a, self.qiaf1b)
-            z, delta_logq2 = self.iaf(z, self.qh, self.qiaf2a, self.qiaf2b)
-            z, delta_logq3 = self.iaf(z, self.qh, self.qiaf3a, self.qiaf3b)
+            #z, delta_logq2 = self.iaf(z, self.qh, self.qiaf2a, self.qiaf2b)
+            # z, delta_logq3 = self.iaf(z, self.qh, self.qiaf3a, self.qiaf3b)
             # pdb.set_trace()
-            self.logq += delta_logq1 + delta_logq2 + delta_logq3
+            self.logq += delta_logq1 #+ delta_logq2 #+ delta_logq3
             self.logq *= current_temperature
 
             # Compute p(x|z)
