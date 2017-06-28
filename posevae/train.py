@@ -20,6 +20,7 @@ Options:
   -t <runtime>, --runtime       Total training runtime in seconds [default: 7200].
   --nhidden <nhidden>           Number of hidden dimensions [default: 256].
   --nlatent <nz>                Number of latent VAE dimensions [default: 16].
+  --nlayers <nl>                Number of hidden layers in the encoder and decoder network [default: 4]
   --time-print=<sec>            Print status every so often [default: 60].
   --epoch-sample=<sec>          Sample every so often [default: 10].
   --dump-every=<sec>            Dump model every so often [default: 900].
@@ -93,6 +94,8 @@ nhidden = int(args['--nhidden'])
 print "%d hidden dimensions" % nhidden
 nlatent = int(args['--nlatent'])
 print "%d latent VAE dimensions" % nlatent
+nlayers = int(args['--nlayers'])
+print "%d hidden layers" % nlayers
 zcount = int(args['--vae-samples'])
 print "Using %d VAE samples per instance" % zcount
 
@@ -111,7 +114,7 @@ data_type = args['--data']
 
 if data_type=='pose':
   if model_type=='vae':
-    vae = vae.VAE(d, nhidden, nlatent, temperature, zcount)
+    vae = vae.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
   elif model_type=='iwae':
     vae = iwae.VAE(d, nhidden, nlatent, temperature, zcount)
   elif model_type=='householder':
