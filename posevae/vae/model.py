@@ -16,7 +16,6 @@ class VAE(chainer.Chain):
     def __init__(self, dim_in, dim_hidden, dim_latent, num_layers, temperature, num_zsamples=1):
        
         super(VAE, self).__init__()
-        # pdb.set_trace()
         # initialise first encoder and decoder hidden layer separately because 
         # the input and output dims differ from the other hidden layers
         self.qlin0 = L.Linear(dim_in, dim_hidden)
@@ -50,7 +49,6 @@ class VAE(chainer.Chain):
         self.temperature = temperature
         self.num_zsamples = num_zsamples
         self.epochs_seen = 0
-        pdb.set_trace()
 
     def encode(self, x):
         h = F.crelu(self.qlin0(x))

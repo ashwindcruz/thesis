@@ -28,7 +28,7 @@ testing_file = exp_folder + '/test_log.txt'
 testing_results = get_results(testing_file,0)
 
 plt.figure()
-plt.plot(training_results[40:], label='training')
-plt.plot(testing_results[40:], label='testing')
+plt.plot(training_results[30:], label='training')
+plt.plot(testing_results[30:], label='testing')
 plt.legend(loc='lower right')
 plt.savefig(exp_folder+'/training_validation.png', bbox_inches='tight')

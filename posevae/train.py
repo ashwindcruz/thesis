@@ -57,17 +57,17 @@ from chainer import computational_graph
 import chainer.functions as F
 import cupy
 
-from vae import model as vae
-from iaf import model as iaf 
-from iwae import model as iwae 
-from householder import model as householder
-from planar import model as planar 
+# from vae import model as vae
+# from iaf import model as iaf 
+# from iwae import model as iwae 
+# from householder import model as householder
+# from planar import model as planar 
 
 from vae_mnist import model as vae_mnist
-from iaf_mnist import model as iaf_mnist
+# from iaf_mnist import model as iaf_mnist
 from iwae_mnist import model as iwae_mnist
-from householder_mnist import model as householder_mnist
-from planar_mnist import model as planar_mnist
+# from householder_mnist import model as householder_mnist
+# from planar_mnist import model as planar_mnist
 
 import util
 
@@ -129,9 +129,9 @@ if data_type=='pose':
     vae = iaf.VAE(d, nhidden, nlatent, temperature, zcount)
 elif data_type=='mnist':
   if model_type=='vae':
-    vae = vae_mnist.VAE(d, nhidden, nlatent, temperature, zcount)
+    vae = vae_mnist.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
   elif model_type=='iwae':
-    vae = iwae_mnist.VAE(d, nhidden, nlatent, temperature, zcount)
+    vae = iwae_mnist.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
   elif model_type=='householder':
     hdegree = int(args['--trans'])
     print 'Using %d Householder flow transformations' % hdegree

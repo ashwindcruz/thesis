@@ -13,40 +13,61 @@ from util import gaussian_logp
 
 
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, temperature, num_zsamples=1):
-        super(VAE, self).__init__(
+    def __init__(self, dim_in, dim_hidden, dim_latent, num_layers, temperature, num_zsamples=1):
+       
+        super(VAE, self).__init__()
+        # pdb.set_trace()
+        # initialise first encoder and decoder hidden layer separately because 
+        # the input and output dims differ from the other hidden layers
+        self.qlin0 = L.Linear(dim_in, dim_hidden)
+        self.plin0 = L.Linear(dim_latent, dim_hidden)
+        self._children.append('qlin0')
+        self._children.append('plin0')
+
+        for i in range(num_layers-1):
             # encoder
-            qlin0 = L.Linear(dim_in, dim_hidden),
-            qlin1 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin2 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin3 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin_mu = L.Linear(2*dim_hidden, dim_latent),
-            qlin_ln_var = L.Linear(2*dim_hidden, dim_latent),
+            layer_name = 'qlin' + str(i+1)
+            setattr(self, layer_name, L.Linear(2*dim_hidden, dim_hidden))
+            self._children.append(layer_name) 
+
             # decoder
-            plin0 = L.Linear(dim_latent, dim_hidden),
-            plin1 = L.Linear(2*dim_hidden, dim_hidden),
-            plin2 = L.Linear(2*dim_hidden, dim_hidden),
-            plin3 = L.Linear(2*dim_hidden, dim_hidden),
-            plin_mu = L.Linear(2*dim_hidden, dim_in),
-            plin_ln_var = L.Linear(2*dim_hidden, dim_in),
-        )
-        self.num_zsamples = num_zsamples
+            layer_name = 'plin' + str(i+1)
+            setattr(self, layer_name, L.Linear(2*dim_hidden, dim_hidden))
+            self._children.append(layer_name)
+
+        # initialise the encoder and decoder output layer separately because
+        # the input and output dims differ from the other hidden layers
+        self.qlin_mu = L.Linear(2*dim_hidden, dim_latent)
+        self.qlin_ln_var = L.Linear(2*dim_hidden, dim_latent)
+        self.plin_ln_var = L.Linear(2*dim_hidden, dim_in)
+        self.plin_mu = L.Linear(2*dim_hidden, dim_in)
+        self._children.append('qlin_mu')
+        self._children.append('qlin_ln_var')
+        self._children.append('plin_mu')
+        self._children.append('plin_ln_var')       
+
+        self.num_layers = num_layers
         self.temperature = temperature
+        self.num_zsamples = num_zsamples
         self.epochs_seen = 0
+        pdb.set_trace()
+
     def encode(self, x):
         h = F.crelu(self.qlin0(x))
-        h = F.crelu(self.qlin1(h))
-        h = F.crelu(self.qlin2(h))
-        h = F.crelu(self.qlin3(h))
 
+        for i in range(self.num_layers-1):
+            layer_name = 'qlin' + str(i+1)
+            h = F.crelu(self[layer_name](h))
+        
         self.qmu = self.qlin_mu(h)
         self.qln_var = self.qlin_ln_var(h)
 
     def decode(self, z):
         h = F.crelu(self.plin0(z))
-        h = F.crelu(self.plin1(h))
-        h = F.crelu(self.plin2(h))
-        h = F.crelu(self.plin3(h))
+
+        for i in range(self.num_layers-1):
+            layer_name = 'plin' + str(i+1)
+            h = F.crelu(self[layer_name](h))        
 
         self.pmu = self.plin_mu(h)
         self.pln_var = self.plin_ln_var(h)

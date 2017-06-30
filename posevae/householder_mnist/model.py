@@ -14,45 +14,72 @@ from util import gaussian_logp
 from util import gaussian_logp0
 from util import bernoulli_logp
 
-
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, temperature, house_degree=1, num_zsamples=1):
-        super(VAE, self).__init__(
+    def __init__(self, dim_in, dim_hidden, dim_latent, num_layers, temperature, num_zsamples=1):
+       
+        super(VAE, self).__init__()
+        # initialise first encoder and decoder hidden layer separately because 
+        # the input and output dims differ from the other hidden layers
+        self.qlin0 = L.Linear(dim_in, dim_hidden)
+        self.plin0 = L.Linear(dim_latent, dim_hidden)
+        self._children.append('qlin0')
+        self._children.append('plin0')
+
+        for i in range(num_layers-1):
             # encoder
-            qlin0 = L.Linear(dim_in, dim_hidden),
-            qlin1 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin2 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin3 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin_mu = L.Linear(2*dim_hidden, dim_latent),
-            qlin_ln_var = L.Linear(2*dim_hidden, dim_latent),
-            qlin_h_vec_0 = L.Linear(2*dim_hidden, dim_latent),
+            layer_name = 'qlin' + str(i+1)
+            setattr(self, layer_name, L.Linear(2*dim_hidden, dim_hidden))
+            self._children.append(layer_name) 
+
             # decoder
-            plin0 = L.Linear(dim_latent, dim_hidden),
-            plin1 = L.Linear(2*dim_hidden, dim_hidden),
-            plin2 = L.Linear(2*dim_hidden, dim_hidden),
-            plin3 = L.Linear(2*dim_hidden, dim_hidden),
-            plin_ber_prob = L.Linear(2*dim_hidden, dim_in),
-            # linear layer required for v_t of Householder flow transformations
-            qlin_h_vec_t = L.Linear(dim_latent, dim_latent),
-        )
+            layer_name = 'plin' + str(i+1)
+            setattr(self, layer_name, L.Linear(2*dim_hidden, dim_hidden))
+            self._children.append(layer_name)
+
+        # initialise the encoder and decoder output layer separately because
+        # the input and output dims differ from the other hidden layers
+        self.qlin_mu = L.Linear(2*dim_hidden, dim_latent)
+        self.qlin_ln_var = L.Linear(2*dim_hidden, dim_latent)
+        self.plin_ber_prob = L.Linear(2*dim_hidden, dim_in)
+        self._children.append('qlin_mu')
+        self._children.append('qlin_ln_var')
+        self._children.append('plin_ber_prob')       
+
+        # v0 and linear layer required for v_t of Householder flow transformations
+        self.qlin_h_vec_0 = L.Linear(2*dim_hidden, dim_latent)
+        self.qlin_h_vec_t = L.Linear(dim_latent, dim_latent)
+        self._children.append('qlin_h_vec_0')
+        self._children.append('qlin_h_vec_t')
+
+        self.num_layers = num_layers
         self.temperature = temperature
         self.num_zsamples = num_zsamples
-        self.house_degree = house_degree
-
         self.epochs_seen = 0
+        pdb.set_trace()
 
     def encode(self, x):
         h = F.crelu(self.qlin0(x))
-        h = F.crelu(self.qlin1(h))
-        h = F.crelu(self.qlin2(h))
-        h = F.crelu(self.qlin3(h))
 
+        for i in range(self.num_layers-1):
+            layer_name = 'qlin' + str(i+1)
+            h = F.crelu(self[layer_name](h))
+        
         self.qmu = self.qlin_mu(h)
         self.qln_var = self.qlin_ln_var(h)
-        self.qh_vec_0 = self.qlin_h_vec_0(h)
 
-        return self.qmu, self.qln_var, self.qh_vec_0
+        return self.qmu, self.qln_var
 
+    def decode(self, z):
+        h = F.crelu(self.plin0(z))
+
+        for i in range(self.num_layers-1):
+            layer_name = 'plin' + str(i+1)
+            h = F.crelu(self[layer_name](h))        
+
+        self.p_ber_prob_logit = self.plin_ber_prob(h)
+
+        return self.p_ber_prob_logit
+    
     def house_transform(self,z):
         vec_t = self.qh_vec_0
         
@@ -62,16 +89,6 @@ class VAE(chainer.Chain):
             vec_t_norm_sqr = F.tile(F.sum(F.square(vec_t)), (z.shape[0], z.shape[1]))
             z = z - 2*F.matmul(vec_t_product,  z)/vec_t_norm_sqr
         return z
-
-    def decode(self, z):
-        h = F.crelu(self.plin0(z))
-        h = F.crelu(self.plin1(h))
-        h = F.crelu(self.plin2(h))
-        h = F.crelu(self.plin3(h))
-
-        self.p_ber_prob_logit = self.plin_ber_prob(h)
-
-        return self.p_ber_prob_logit
 
     def __call__(self, x):
         # Obtain parameters for q(z|x)
