@@ -9,104 +9,116 @@ import chainer.functions as F
 import chainer.links as L
 from chainer import cuda
 
-from util import gaussian_kl_divergence_standard
-from util import gaussian_logp
 from util import gaussian_logp0
 from util import bernoulli_logp
 
-
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, temperature, num_maps, num_zsamples,):
-        super(VAE, self).__init__(
+    def __init__(self, dim_in, dim_hidden, dim_latent, num_layers, num_trans, temperature, num_zsamples=1):
+        super(VAE, self).__init__()
+        
+        # initialise first encoder and decoder hidden layer separately because 
+        # the input and output dims differ from the other hidden layers
+        self.qlin0 = L.Linear(dim_in, dim_hidden)
+        self.plin0 = L.Linear(dim_latent, dim_hidden)
+        self._children.append('qlin0')
+        self._children.append('plin0')
+
+        for i in range(num_layers-1):
             # encoder
-            qlin0 = L.Linear(dim_in, dim_hidden),
-            qlin1 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin2 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin3 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin_mu = L.Linear(2*dim_hidden, dim_latent),
-            qlin_ln_var = L.Linear(2*dim_hidden, dim_latent),
-            # flow 
-            linearity_W = L.Scale(axis=1, W_shape=(dim_latent), bias_term=False),
-            linearity_b = L.Bias(axis=0, shape=(1)),
-            scaling = L.Scale(axis=1, W_shape=(dim_latent), bias_term=False),
+            layer_name = 'qlin' + str(i+1)
+            setattr(self, layer_name, L.Linear(2*dim_hidden, dim_hidden))
+            self._children.append(layer_name) 
+
             # decoder
-            plin0 = L.Linear(dim_latent, dim_hidden),
-            plin1 = L.Linear(2*dim_hidden, dim_hidden),
-            plin2 = L.Linear(2*dim_hidden, dim_hidden),
-            plin3 = L.Linear(2*dim_hidden, dim_hidden),
-            plin_mu = L.Linear(2*dim_hidden, dim_in),
-            plin_ber_prob = L.Linear(2*dim_hidden, dim_in),
-        )
+            layer_name = 'plin' + str(i+1)
+            setattr(self, layer_name, L.Linear(2*dim_hidden, dim_hidden))
+            self._children.append(layer_name)
+
+        # initialise the encoder and decoder output layer separately because
+        # the input and output dims differ from the other hidden layers
+        self.qlin_mu = L.Linear(2*dim_hidden, dim_latent)
+        self.qlin_ln_var = L.Linear(2*dim_hidden, dim_latent)
+        self.plin_ber_prob = L.Linear(2*dim_hidden, dim_in)
+        self._children.append('qlin_mu')
+        self._children.append('qlin_ln_var')
+        self._children.append('plin_ber_prob')  
+
+        # flow
+        for i in range(num_trans):
+            layer_name = 'flow_w_' + str(i) # weights
+            setattr(self, layer_name, L.Scale(axis=1, W_shape=(dim_latent), bias_term=False))  
+            self._children.append(layer_name)
+
+            layer_name = 'flow_b_' + str(i) # bias
+            setattr(self, layer_name, L.Bias(axis=0, shape=(1)))  
+            self._children.append(layer_name)
+
+            layer_name = 'flow_u_' + str(i) # scaling factor u
+            setattr(self, layer_name, L.Scale(axis=1, W_shape=(dim_latent), bias_term=False))  
+            self._children.append(layer_name)
+
+        self.num_layers = num_layers
+        self.num_trans = num_trans 
         self.temperature = temperature
         self.num_zsamples = num_zsamples
-        self.epochs_seen  = 0
-        # planar mappings
-        #cuda.check_cuda_available()
-        #xp = cuda.cupy
-        # self.planar_maps = []
-        # for i in range(num_maps):
-            #mapping = {'linearity': L.Linear(dim_latent, dim_latent, nobias=False), 'scaling': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False) }
-            # mapping = {'linearity_W': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False), 'linearity_b': L.Bias(axis=0, shape=(1)), \
-            #  'scaling': L.Scale(axis=1, W_shape=(dim_latent), bias_term=False) }
-            # self.planar_maps.append(mapping) 
-            # self.planar_maps[i]['linearity_W'].to_gpu(0)
-            # self.planar_maps[i]['linearity_b'].to_gpu(0)
-            # self.planar_maps[i]['scaling'].to_gpu(0)
-
-            #pdb.set_trace()
+        self.epochs_seen = 0
+        
     def encode(self, x):
-        h = F.crelu(self.qlin0(x))
-        h = F.crelu(self.qlin1(h))
-        h = F.crelu(self.qlin2(h))
-        h = F.crelu(self.qlin3(h))
+       h = F.crelu(self.qlin0(x))
 
-        self.qmu = self.qlin_mu(h)
-        self.qln_var = self.qlin_ln_var(h)
-        #pdb.set_trace()
-        return self.qmu, self.qln_var
+       for i in range(self.num_layers-1):
+           layer_name = 'qlin' + str(i+1)
+           h = F.crelu(self[layer_name](h))
 
-    def planar_flows(self,z):
-        self.z_trans = []
-        self.z_trans.append(z)
-
-        for i in range(len(self.planar_maps)):
-            
-            # Relu non-linearity
-            #h = F.relu(self.planar_maps[i]['linearity'](z))
-            #h.grad = xp.ones(h.shape, dtype=xp.float32)
-            #h.backward()
-            #h.cleargrads()
-            #pdb.set_trace()
-            
-            # Sigmoid non-linearity
-            h = self.planar_maps[i]['linearity_W'](z)
-            h = F.sum(h,axis=(1))
-            h = self.planar_maps[i]['linearity_b'](h)
-            h = F.sigmoid(h)
-            h_sigmoid = h
-            dim_latent = z.shape[1]
-            h = F.transpose(F.tile(h,(dim_latent,1)))
-            h = self.planar_maps[i]['scaling'](h)
-
-            # Store the lodget-Jacobian terms for later ELBO calculation
-            #h_derivative = F.sigmoid(self.planar_maps[i]['linearity'](z)) * (1 - F.sigmoid(self.planar_maps[i]['linearity'](z)))
-            h_derivative = h_sigmoid*(1-h_sigmoid)
-            h_derivative = F.transpose(F.tile(h_derivative, (dim_latent,1)))    
-
-            self.planar_maps[i]['lodget_jacobian'] = self.planar_maps[i]['linearity_W'](h_derivative) #TODO: You need to have the weights of the linearity here
-            z += h
-            self.z_trans.append(z)
-        return z
+       self.qmu = self.qlin_mu(h)
+       self.qln_var = self.qlin_ln_var(h)
+        
+       return self.qmu, self.qln_var
 
     def decode(self, z):
         h = F.crelu(self.plin0(z))
-        h = F.crelu(self.plin1(h))
-        h = F.crelu(self.plin2(h))
-        h = F.crelu(self.plin3(h))
+
+        for i in range(self.num_layers-1):
+            layer_name = 'plin' + str(i+1)
+            h = F.crelu(self[layer_name](h))
 
         self.p_ber_prob_logit = self.plin_ber_prob(h)
 
         return self.p_ber_prob_logit
+    
+    def planar_flows(self,z):
+        self.z_trans = []
+        self.z_trans.append(z)
+        self.phi = []
+
+        for i in range(self.num_trans):
+            flow_w_name = 'flow_w_' + str(i)
+            flow_b_name = 'flow_b_' + str(i)
+            flow_u_name = 'flow_u_' + str(i)
+
+            h = self[flow_w_name](z)
+            h = F.sum(h,axis=(1))
+            h = self[flow_b_name](h)
+            h = F.tanh(h)
+            h_tanh = h
+
+            dim_latent = z.shape[1]
+            h = F.transpose(F.tile(h, (dim_latent,1)))
+            h = self[flow_u_name](h)
+
+            z += h
+
+            self.z_trans.append(z)
+
+            # Calculate and store the phi term
+            h_tanh_derivative = 1-(h_tanh*h_tanh)
+            h_tanh_derivative = F.transpose(F.tile(h_tanh_derivative, (dim_latent,1))) 
+            
+            phi = self[flow_w_name](h_tanh_derivative) # Equation (11)
+            self.phi.append(phi)
+
+        return z
+
 
     def __call__(self, x):
         # Compute q(z|x)
@@ -116,6 +128,7 @@ class VAE(chainer.Chain):
 
         decoding_time_average = 0.
 
+        self.kl = 0
         self.logp = 0
 
         current_temperature = min(self.temperature['value'],1.0)
@@ -127,17 +140,7 @@ class VAE(chainer.Chain):
 
             # Perform planar flow mappings, Equation (10)
             decoding_time = time.time()
-            h = self.linearity_W(z_0)
-            h = F.sum(h,axis=(1))
-            h = self.linearity_b(h)
-            h = F.tanh(h)
-            h_tanh = h # Store for use in ELBO
-
-            dim_latent = z_0.shape[1]
-            h = F.transpose(F.tile(h,(dim_latent,1)))
-            h = self.scaling(h)
-
-            z_K = z_0 + h
+            z_K = self.planar_flows(z_0)
 
             # Obtain parameters for p(x|z_K)
             p_ber_prob_logit =  self.decode(z_K)
@@ -145,24 +148,27 @@ class VAE(chainer.Chain):
             decoding_time_average += decoding_time
 
             # Compute log q(z_0)
-            q_prior_log = gaussian_logp0(z_0)
+            q_prior_log = current_temperature*gaussian_logp0(z_0)
             
             # Compute log p(x|z_K)
             decoder_log = bernoulli_logp(x, p_ber_prob_logit)
             # Compute log p(z_K)
-            p_prior_log = gaussian_logp0(z_K)
+            p_prior_log = current_temperature*gaussian_logp0(z_K)
 
             # Compute log p(x,z_K) which is log p(x|z_K) + log p(z_K)
             joint_log = decoder_log + p_prior_log
 
             # Compute second term of log q(z_K)
-            # pdb.set_trace()
-            h_tanh_derivative = 1-(h_tanh*h_tanh)
-            h_tanh_derivative = F.transpose(F.tile(h_tanh_derivative, (dim_latent,1))) 
-            phi = self.linearity_W(h_tanh_derivative) # Equation (11)
-            lodget_jacobian = F.sum(self.scaling(phi), axis=1)
-            q_K_log = F.log(1 + lodget_jacobian)
-            
+            q_K_log = 0
+            for i in range(self.num_trans):
+                flow_u_name = 'flow_u_' + str(i)
+                lodget_jacobian = F.sum(self[flow_u_name](self.phi[i]), axis=1)
+                q_K_log += F.log(1 + lodget_jacobian)
+            q_K_log *= current_temperature
+
+        q_prior_log /= self.num_zsamples
+        joint_log /= self.num_zsamples
+        q_K_log /= self.num_zsamples
 
         decoding_time_average /= self.num_zsamples
         # pdb.set_trace()

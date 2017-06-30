@@ -1,8 +1,0 @@
-#!/bin/bash
-
-python ./train.py -g 0 -o vae_01_3_hours -b 8192 -t 10800 --nhidden 256 --time-print 360 --time-sample 120 --vae-samples 1 ../data/MSRC12-X-d60.mat --test 70000 --log-interval 100
-python ./train.py -g 0 -o vae_05_3_hours -b 8192 -t 10800 --nhidden 256 --time-print 360 --time-sample 120 --vae-samples 10 ../data/MSRC12-X-d60.mat --test 70000 --log-interval 100
-python ./train.py -g 0 -o vae_50_3_hours -b 8192 -t 10800 --nhidden 256 --time-print 360 --time-sample 108000 --vae-samples 50 ../data/MSRC12-X-d60.mat --test 70000 --log-interval 100
-
-
-

@@ -9,57 +9,78 @@ import chainer.functions as F
 import chainer.links as L
 from chainer import cuda
 
-from util import gaussian_kl_divergence_standard
 from util import gaussian_logp
 from util import gaussian_logp0
 from util import bernoulli_logp
 
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, temperature, num_zsamples=1):
-        super(VAE, self).__init__(
+    def __init__(self, dim_in, dim_hidden, dim_latent, num_layers, num_trans, temperature, num_zsamples=1):
+       
+        super(VAE, self).__init__()
+        # initialise first encoder and decoder hidden layer separately because 
+        # the input and output dims differ from the other hidden layers
+        self.qlin0 = L.Linear(dim_in, dim_hidden)
+        self.plin0 = L.Linear(dim_latent, dim_hidden)
+        self.qlin_h = L.Linear(2*dim_hidden, dim_latent)
+        self._children.append('qlin0')
+        self._children.append('plin0')
+        self._children.append('qlin_h')
+
+        for i in range(num_layers-1):
             # encoder
-            qlin0 = L.Linear(dim_in, dim_hidden),
-            qlin1 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin2 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin3 = L.Linear(2*dim_hidden, dim_hidden),
-            qlin_mu = L.Linear(2*dim_hidden, dim_latent),
-            qlin_ln_var = L.Linear(2*dim_hidden, dim_latent),
-            qlin_h = L.Linear(2*dim_hidden, dim_latent),
-            # IAF
-            qiaf1a = L.Linear(2*dim_latent, dim_latent),
-            qiaf1b = L.Linear(2*dim_latent, 2*dim_latent),
-            # IAF
-            #qiaf2a = L.Linear(2*dim_latent, dim_latent),
-            #qiaf2b = L.Linear(2*dim_latent, 2*dim_latent),
-            # IAF
-            # qiaf3a = L.Linear(2*dim_latent, dim_latent),
-            # qiaf3b = L.Linear(2*dim_latent, 2*dim_latent),
+            layer_name = 'qlin' + str(i+1)
+            setattr(self, layer_name, L.Linear(2*dim_hidden, dim_hidden))
+            self._children.append(layer_name) 
+
             # decoder
-            plin0 = L.Linear(dim_latent, dim_hidden),
-            plin1 = L.Linear(2*dim_hidden, dim_hidden),
-            plin2 = L.Linear(2*dim_hidden, dim_hidden),
-            plin3 = L.Linear(2*dim_hidden, dim_hidden),
-            plin_ber_prob = L.Linear(2*dim_hidden, dim_in),
-        )
-        self.num_zsamples = num_zsamples
+            layer_name = 'plin' + str(i+1)
+            setattr(self, layer_name, L.Linear(2*dim_hidden, dim_hidden))
+            self._children.append(layer_name)
+
+
+        # initialise the encoder and decoder output layer separately because
+        # the input and output dims differ from the other hidden layers
+        self.qlin_mu = L.Linear(2*dim_hidden, dim_latent)
+        self.qlin_ln_var = L.Linear(2*dim_hidden, dim_latent)
+        self.plin_ber_prob = L.Linear(2*dim_hidden, dim_in)
+        self._children.append('qlin_mu')
+        self._children.append('qlin_ln_var')
+        self._children.append('plin_ber_prob')     
+
+        for i in range(num_trans):
+            # encoder
+            layer_name = 'qiaf_a' + str(i+1)
+            setattr(self, layer_name, L.Linear(2*dim_latent, dim_latent))
+            self._children.append(layer_name) 
+
+            # decoder
+            layer_name = 'qiaf_b' + str(i+1)
+            setattr(self, layer_name, L.Linear(2*dim_latent, 2*dim_latent))
+            self._children.append(layer_name)
+
+        self.num_layers = num_layers
+        self.num_trans = num_trans
         self.temperature = temperature
+        self.num_zsamples = num_zsamples
         self.epochs_seen = 0
 
     def encode(self, x):
         h = F.crelu(self.qlin0(x))
-        h = F.crelu(self.qlin1(h))
-        h = F.crelu(self.qlin2(h))
-        h = F.crelu(self.qlin3(h))
 
+        for i in range(self.num_layers-1):
+            layer_name = 'qlin' + str(i+1)
+            h = F.crelu(self[layer_name](h))
+        
         self.qmu = self.qlin_mu(h)
         self.qln_var = self.qlin_ln_var(h)
         self.qh = self.qlin_h(h)
 
     def decode(self, z):
         h = F.crelu(self.plin0(z))
-        h = F.crelu(self.plin1(h))
-        h = F.crelu(self.plin2(h))
-        h = F.crelu(self.plin3(h))
+
+        for i in range(self.num_layers-1):
+            layer_name = 'plin' + str(i+1)
+            h = F.crelu(self[layer_name](h))        
 
         self.p_ber_prob_logit = self.plin_ber_prob(h)
 
@@ -99,11 +120,12 @@ class VAE(chainer.Chain):
             # Apply inverse autoregressive flow (IAF)
             self.logq += gaussian_logp(z, self.qmu, self.qln_var)    # - log q(z|x)
 
-            z, delta_logq1 = self.iaf(z, self.qh, self.qiaf1a, self.qiaf1b)
-            #z, delta_logq2 = self.iaf(z, self.qh, self.qiaf2a, self.qiaf2b)
-            # z, delta_logq3 = self.iaf(z, self.qh, self.qiaf3a, self.qiaf3b)
-            # pdb.set_trace()
-            self.logq += delta_logq1 #+ delta_logq2 #+ delta_logq3
+            for i in range(self.num_trans):
+                a_layer_name = 'qiaf_a' + str(i+1)
+                b_layer_name = 'qiaf_b' + str(i+1)
+                z, delta_logq = self.iaf(z, self.qh, self[a_layer_name], self[b_layer_name])
+                self.logq += delta_logq
+
             self.logq *= current_temperature
 
             # Compute p(x|z)
@@ -120,8 +142,6 @@ class VAE(chainer.Chain):
             # For reporting purposes only
             self.logp += logz_given_x
             self.kl += (self.logq - logz) 
-
-
 
         decoding_time_average /= self.num_zsamples
         self.logp_xz /= self.num_zsamples

@@ -9,13 +9,13 @@ import chainer.functions as F
 import chainer.links as L
 from chainer import cuda
 
-from util import gaussian_kl_divergence_standard
+from util import gaussian_kl_divergence
 from util import gaussian_logp
 from util import gaussian_logp0
 from util import bernoulli_logp
 
 class VAE(chainer.Chain):
-    def __init__(self, dim_in, dim_hidden, dim_latent, num_layers, temperature, num_zsamples=1):
+    def __init__(self, dim_in, dim_hidden, dim_latent, num_layers, num_trans, temperature, num_zsamples=1):
        
         super(VAE, self).__init__()
         # initialise first encoder and decoder hidden layer separately because 
@@ -52,10 +52,11 @@ class VAE(chainer.Chain):
         self._children.append('qlin_h_vec_t')
 
         self.num_layers = num_layers
+        self.num_trans = num_trans
         self.temperature = temperature
         self.num_zsamples = num_zsamples
         self.epochs_seen = 0
-        pdb.set_trace()
+        # pdb.set_trace()
 
     def encode(self, x):
         h = F.crelu(self.qlin0(x))
@@ -66,8 +67,9 @@ class VAE(chainer.Chain):
         
         self.qmu = self.qlin_mu(h)
         self.qln_var = self.qlin_ln_var(h)
+        self.qh_vec_0 = self.qlin_h_vec_0(h)
 
-        return self.qmu, self.qln_var
+        return self.qmu, self.qln_var, self.qh_vec_0
 
     def decode(self, z):
         h = F.crelu(self.plin0(z))
@@ -83,7 +85,7 @@ class VAE(chainer.Chain):
     def house_transform(self,z):
         vec_t = self.qh_vec_0
         
-        for i in range(self.house_degree):
+        for i in range(self.num_trans):
             vec_t = F.identity(self.qlin_h_vec_t(vec_t))
             vec_t_product = F.matmul(vec_t, vec_t, transb=True)
             vec_t_norm_sqr = F.tile(F.sum(F.square(vec_t)), (z.shape[0], z.shape[1]))

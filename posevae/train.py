@@ -26,7 +26,7 @@ Options:
   --dump-every=<sec>            Dump model every so often [default: 900].
   --log-interval <log-interval> Number of batches before logging training and testing ELBO [default: 100].
   --vae-samples <zcount>        Number of samples in VAE/IWAE z [default: 1].
-  --trans <trans>               Number of Householder flow transformations to apply. Only applicable with householder and planar model [default: 2]. 
+  --ntrans <ntrans>             Number of Householder flow transformations to apply. Only applicable with householder and planar model [default: 2]. 
   --data <data>                 Prefix of mat files that will be used for training and testing. 
   --init-temp <init-temp>       Initial KL temperature [default: 0].
   --temp-epoch <temp-epoch>     Number of epochs used to increase temperature from init-temp to 1 [default: 200].
@@ -34,7 +34,6 @@ Options:
   --learn-decay <learn-decay>   Learning rate decay [default: 1e-3].
   --weight-decay <weight-decay> Weight decay value for regularization [default: 0].
   --init-model <init-model>     Initialize using a pre-trained model [default: none]
-  --init-opt <init-opt>         Initialize using a previous optimizer [default: none]
 
 The data.mat file must contain a (N,d) array of N instances, d dimensions
 each.
@@ -57,17 +56,17 @@ from chainer import computational_graph
 import chainer.functions as F
 import cupy
 
-# from vae import model as vae
-# from iaf import model as iaf 
-# from iwae import model as iwae 
-# from householder import model as householder
-# from planar import model as planar 
+from vae_pose import model as vae_pose
+from iaf_pose import model as iaf_pose 
+from iwae_pose import model as iwae_pose 
+from householder_pose import model as householder_pose
+from planar_pose import model as planar_pose 
 
 from vae_mnist import model as vae_mnist
-# from iaf_mnist import model as iaf_mnist
+from iaf_mnist import model as iaf_mnist
 from iwae_mnist import model as iwae_mnist
-# from householder_mnist import model as householder_mnist
-# from planar_mnist import model as planar_mnist
+from householder_mnist import model as householder_mnist
+from planar_mnist import model as planar_mnist
 
 import util
 
@@ -112,36 +111,36 @@ temperature['increment'] = (1.0-temperature['value'])/temperature_epochs
 model_type = args['--model-type']
 data_type = args['--data']
 
+ntrans = int(args['--ntrans'])
+
 if data_type=='pose':
   if model_type=='vae':
-    vae = vae.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
+    vae = vae_pose.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
   elif model_type=='iwae':
-    vae = iwae.VAE(d, nhidden, nlatent, temperature, zcount)
+    vae = iwae_pose.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
   elif model_type=='householder':
-    hdegree = int(args['--trans'])
-    print 'Using %d Householder flow transformations' % hdegree
-    vae = householder.VAE(d, nhidden, nlatent, temperature, hdegree, zcount)
+    print 'Using %d Householder flow transformations' % ntrans
+    vae = householder_pose.VAE(d, nhidden, nlatent, nlayers, ntrans, temperature, zcount)
   elif model_type=='planar':
-    nmap = int(args['--trans'])
-    print 'Using %d Planar flow mappings' % nmap
-    vae = planar.VAE(d, nhidden, nlatent, temperature, nmap, zcount)
+    print 'Using %d Planar flow transformations' % ntrans
+    vae = planar_pose.VAE(d, nhidden, nlatent, nlayers, ntrans, temperature, zcount)
   elif model_type=='iaf':
-    vae = iaf.VAE(d, nhidden, nlatent, temperature, zcount)
+    print 'Using %d IAF transformations' % ntrans
+    vae = iaf_pose.VAE(d, nhidden, nlatent, nlayers, ntrans, temperature, zcount)
 elif data_type=='mnist':
   if model_type=='vae':
     vae = vae_mnist.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
   elif model_type=='iwae':
     vae = iwae_mnist.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
   elif model_type=='householder':
-    hdegree = int(args['--trans'])
-    print 'Using %d Householder flow transformations' % hdegree
-    vae = householder_mnist.VAE(d, nhidden, nlatent, temperature, hdegree, zcount)
+    print 'Using %d Householder flow transformations' % ntrans
+    vae = householder_mnist.VAE(d, nhidden, nlatent, nlayers, ntrans, temperature, zcount)
   elif model_type=='planar':
-    nmap = int(args['--trans'])
-    print 'Using %d Planar flow mappings' % nmap
-    vae = planar_mnist.VAE(d, nhidden, nlatent, temperature, nmap, zcount)
+    print 'Using %d Planar flow transformations' % ntrans
+    vae = planar_mnist.VAE(d, nhidden, nlatent, nlayers, ntrans, temperature, zcount)
   elif model_type=='iaf':
-    vae = iaf_mnist.VAE(d, nhidden, nlatent, temperature, zcount)
+    print 'Using %d IAF transformations' % ntrans
+    vae = iaf_mnist.VAE(d, nhidden, nlatent, nlayers, ntrans, temperature, zcount)
 
 # Load in pre trained model if provided
 init_model = args['--init-model']
@@ -157,10 +156,6 @@ alpha_0 = float(args['--init-learn'])
 k_decay = float(args['--learn-decay'])
 
 opt = optimizers.Adam(alpha=alpha_0)
-
-# Load in previously used optimizer if provided
-if(args['--init-opt'] != 'none'):
-    serializers.load_hdf5(args['--init-opt'], opt)
 
 opt.setup(vae)
 opt.add_hook(chainer.optimizer.GradientClipping(4.0))

@@ -13,6 +13,6 @@ do
 #do 	
 ./train.py -g 0 -o 'samples_'$1'_run_'$i --model-type vae --vae-samples $1 --trans 1 --nlatent 50 --nhidden 200 --nlayers 2\
  -b 4096 --batch-limit 5000 -t 1000000 --time-print 600 --epoch-sample 100 --log-interval 10 --data mnist \
- --init-temp 0 --temp-epoch 200 --init-learn 10e-4 --learn-decay 3e-3 --weight-decay 0 --init-model none --init-opt none
+ --init-temp 0 --temp-epoch 200 --init-learn 10e-4 --learn-decay 3e-3 --weight-decay 0 --init-model none 
 #done
 done

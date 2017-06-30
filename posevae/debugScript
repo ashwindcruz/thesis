@@ -1,4 +1,0 @@
-#!/bin/bash
-
-./train.py -g 0 -o refactoring --model-type vae --house-degree 1 --nmap 1 --vae-samples 1 -b 8192 --batch-limit 5000000 -t 300 --time-print 1  --time-sample 1200 --log-interval 100 --test 70000 ./data/MSRC12-X-d60.mat
-
