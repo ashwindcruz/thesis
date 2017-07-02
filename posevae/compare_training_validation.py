@@ -22,7 +22,7 @@ def get_results(file, column):
 
 training_file = exp_folder + '/online_log.txt'
 training_results = get_results(training_file,0)
-training_results = training_results[0::10]
+training_results = training_results[0::5]
 
 testing_file = exp_folder + '/test_log.txt'
 testing_results = get_results(testing_file,0)

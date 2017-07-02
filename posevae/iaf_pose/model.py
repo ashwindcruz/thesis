@@ -10,8 +10,8 @@ import chainer.links as L
 from chainer import cuda
 
 from util import gaussian_kl_divergence_standard
-from util import gaussian_logp
 from util import gaussian_logp0
+from util import gaussian_logp
 
 class VAE(chainer.Chain):
     def __init__(self, dim_in, dim_hidden, dim_latent, num_layers, num_trans, temperature, num_zsamples=1):
@@ -153,8 +153,6 @@ class VAE(chainer.Chain):
         # For reporting purposes only
         self.logp /= self.num_zsamples
         self.kl /= self.num_zsamples
-
-
         
         self.obj_batch = self.logp_xz - self.logq     # variational free energy
         self.timing_info = np.array([encoding_time,decoding_time_average])

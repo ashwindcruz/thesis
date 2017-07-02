@@ -37,7 +37,6 @@ class VAE(chainer.Chain):
             setattr(self, layer_name, L.Linear(2*dim_hidden, dim_hidden))
             self._children.append(layer_name)
 
-
         # initialise the encoder and decoder output layer separately because
         # the input and output dims differ from the other hidden layers
         self.qlin_mu = L.Linear(2*dim_hidden, dim_latent)
