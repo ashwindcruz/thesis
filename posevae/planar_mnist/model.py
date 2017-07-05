@@ -166,19 +166,21 @@ class VAE(chainer.Chain):
                 q_K_log += F.log(1 + lodget_jacobian)
             q_K_log *= current_temperature
 
-        q_prior_log /= self.num_zsamples
-        joint_log /= self.num_zsamples
-        q_K_log /= self.num_zsamples
+            # For recording purposes only
+            self.logp += decoder_log
+            self.kl += -(q_prior_log - p_prior_log - q_K_log)
+
 
         decoding_time_average /= self.num_zsamples
         # pdb.set_trace()
         self.obj_batch = ((q_prior_log -joint_log) - q_K_log)
+        self.obj_batch /= self.num_zsamples
         batch_size = self.obj_batch.shape[0]
 
         self.obj = F.sum(self.obj_batch)/batch_size
 
-        self.kl = self.obj_batch
-        self.logp = self.obj_batch
+        self.kl /= self.num_zsamples
+        self.logp /= self.num_zsamples
 
         self.timing_info = np.array([encoding_time,decoding_time])
         

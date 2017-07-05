@@ -149,8 +149,6 @@ class VAE(chainer.Chain):
         # For reporting purposes only
         self.logp /= self.num_zsamples
         self.kl /= self.num_zsamples
-
-
         
         self.obj_batch = self.logp_xz - self.logq     # variational free energy
         self.timing_info = np.array([encoding_time,decoding_time_average])

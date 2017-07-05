@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Increasing number of samples in each for loop
+
+#
+
+ntrans=(20 40 60 80)
+
+
+for i in `seq 1 3`;
+do
+for j in "${ntrans[@]}"
+do 	
+./train.py -g 0 -o 'mnist_samples_1_'$j't_run_'$i --model-type planar --vae-samples 1 --ntrans $j --nlatent 50 --nhidden 200 --nlayers 2\
+ -b 4096 --batch-limit 5000 -t 1000000 --time-print 600 --epoch-sample 100 --log-interval 10 --data mnist \
+ --init-temp 0 --temp-epoch 1 --init-learn 10e-4 --learn-decay 3e-3 --weight-decay 0 --init-model none 
+done
+done

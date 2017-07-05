@@ -144,8 +144,6 @@ class VAE(chainer.Chain):
             self.logp += logz_given_x
             self.kl += (self.logq - logz) 
 
-
-
         decoding_time_average /= self.num_zsamples
         self.logp_xz /= self.num_zsamples
         self.logq /= self.num_zsamples

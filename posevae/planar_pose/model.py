@@ -132,6 +132,7 @@ class VAE(chainer.Chain):
         decoding_time_average = 0.
 
         self.logp = 0
+        self.kl = 0
 
         current_temperature = min(self.temperature['value'],1.0)
         self.temperature['value'] += self.temperature['increment']
@@ -150,12 +151,12 @@ class VAE(chainer.Chain):
             decoding_time_average += decoding_time
 
             # Compute log q(z_0)
-            q_prior_log = gaussian_logp0(z_0)
+            q_prior_log = current_temperature*gaussian_logp0(z_0)
             
             # Compute log p(x|z_K)
             decoder_log = gaussian_logp(x, pmu, pln_var)
             # Compute log p(z_K)
-            p_prior_log = gaussian_logp0(z_K)
+            p_prior_log = current_temperature*gaussian_logp0(z_K)
 
             # Compute log p(x,z_K) which is log p(x|z_K) + log p(z_K)
             joint_log = decoder_log + p_prior_log
@@ -166,17 +167,23 @@ class VAE(chainer.Chain):
                 flow_u_name = 'flow_u_' + str(i)
                 lodget_jacobian = F.sum(self[flow_u_name](self.phi[i]), axis=1)
                 q_K_log += F.log(1 + lodget_jacobian)
+            q_K_log *= current_temperature
+
+            # For recording purposes only
+            self.logp += decoder_log
+            self.kl += -(q_prior_log - p_prior_log -q_K_log)
             
 
         decoding_time_average /= self.num_zsamples
         # pdb.set_trace()
         self.obj_batch = ((q_prior_log -joint_log) - q_K_log)
+        self.obj_batch /= self.num_zsamples
         batch_size = self.obj_batch.shape[0]
 
         self.obj = F.sum(self.obj_batch)/batch_size
 
-        self.kl = self.obj_batch
-        self.logp = self.obj_batch
+        self.kl /= self.num_zsamples
+        self.logp /= self.num_zsamples
 
         self.timing_info = np.array([encoding_time,decoding_time])
         

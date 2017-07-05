@@ -248,7 +248,7 @@ with cupy.cuda.Device(gpu_id):
             if(obj_count==0):
                 obj_count+=1
             EO = -obj_mean / obj_count
-            print "   %.1fs of %.1fs  [%d] epoch %d, E[obj] %.4f, KL %.4f, Logp %.4f,  %.2f S/s, %d total" % \
+            print "   %.1fs of %.1fs  [%d] epoch %d, ELBO %.4f, KL %.4f, Logp %.4f,  %.2f S/s, %d total" % \
                   (tpassed, runtime, printcount, (bi-1), EO, xp.mean(vae.kl.data), xp.mean(vae.logp.data), tput, total)
 
             period_start_at = now

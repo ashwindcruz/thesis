@@ -12,7 +12,7 @@ do
 #for j in "${samples[@]}"
 #do 	
 ./train.py -g 0 -o 'mnist_samples_1_'$1't_run_'$i --model-type iaf --vae-samples 1 --ntrans $1 --nlatent 50 --nhidden 200 --nlayers 2\
- -b 4096 --batch-limit 5000 -t 1000000 --time-print 600 --epoch-sample 100 --log-interval 10 --data mnist \
- --init-temp 0 --temp-epoch 200 --init-learn 10e-4 --learn-decay 3e-3 --weight-decay 0 --init-model none 
+ -b 4096 --batch-limit 5000 -t 1000000 --time-print 1 --epoch-sample 100 --log-interval 10 --data mnist \
+ --init-temp 0 --temp-epoch 2 --init-learn 10e-4 --learn-decay 3e-3 --weight-decay 0 --init-model none 
 #done
 done

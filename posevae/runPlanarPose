@@ -1,0 +1,14 @@
+#!/bin/bash
+
+ntrans=(20 40 60 80)
+
+for i in `seq 1 1`;
+do
+for j in "${ntrans[@]}"
+do
+./train.py -g 0 -o 'pose_samples_1_'$j't_run_'$i --model-type planar --vae-samples 1 --ntrans $j --nlatent 16 --nhidden 512 \
+-b 16384 --batch-limit 1000 -t 180000 --time-print 600 --epoch-sample 200 --log-interval 5 --data pose\
+ --init-temp 0 --temp-epoch 1 --init-learn 1e-4 --learn-decay 3e-3 --weight-decay 0 --init-model none 
+done
+done
+#	
