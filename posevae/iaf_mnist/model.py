@@ -117,8 +117,8 @@ class VAE(chainer.Chain):
             decoding_time = time.time()
 
             # Apply inverse autoregressive flow (IAF)
-            self.logq += gaussian_logp(z, self.qmu, self.qln_var)    # - log q(z|x)
-
+            self.logq += gaussian_logp(z, self.qmu, self.qln_var)    # -> log q(z|x)
+            logq_ori = self.logq
             for i in range(self.num_trans):
                 a_layer_name = 'qiaf_a' + str(i+1)
                 b_layer_name = 'qiaf_b' + str(i+1)
@@ -134,27 +134,32 @@ class VAE(chainer.Chain):
             decoding_time_average += decoding_time
 
             # Compute objective, p(x,z)
-            logz_given_x = bernoulli_logp(x, self.p_ber_prob_logit) # p(x|z)
+            logx_given_z = bernoulli_logp(x, self.p_ber_prob_logit) # p(x|z)
             logz = (current_temperature*gaussian_logp0(z)) # p(z)
-            self.logp_xz += (logz_given_x + logz)
+            self.logp_xz += (logx_given_z + logz) # p(x,z)
 
             # For reporting purposes only
-            self.logp += logz_given_x
+            self.logp += logx_given_z
             self.kl += (self.logq - logz) 
 
+            # pdb.set_trace()
+
         decoding_time_average /= self.num_zsamples
-        self.logp_xz /= self.num_zsamples
-        self.logq /= self.num_zsamples
+        # self.logp_xz /= self.num_zsamples
+        # self.logq /= self.num_zsamples
 
         # For reporting purposes only
         self.logp /= self.num_zsamples
         self.kl /= self.num_zsamples
         
-        self.obj_batch = self.logp_xz - self.logq     # variational free energy
+        self.obj_batch = self.logp_xz - self.logq     # ELBO, form: p(x,z) - q(z|x)
+        self.obj_batch /= self.num_zsamples
         self.timing_info = np.array([encoding_time,decoding_time_average])
 
         batch_size = self.obj_batch.shape[0]
         self.obj = -F.sum(self.obj_batch)/batch_size  
+
+        # pdb.set_trace()
 
         return self.obj
 

@@ -136,23 +136,24 @@ class VAE(chainer.Chain):
             decoding_time_average += decoding_time
 
             # Compute objective, p(x,z)
-            logz_given_x = gaussian_logp(x, self.pmu, self.pln_var) # p(x|z)
+            logx_given_z = gaussian_logp(x, self.pmu, self.pln_var) # p(x|z)
             logz = (current_temperature*gaussian_logp0(z)) # p(z)
             self.logp_xz += (logz_given_x + logz)
 
             # For reporting purposes only
-            self.logp += logz_given_x
+            self.logp += logx_given_z
             self.kl += (self.logq - logz) 
 
         decoding_time_average /= self.num_zsamples
-        self.logp_xz /= self.num_zsamples
-        self.logq /= self.num_zsamples
+        # self.logp_xz /= self.num_zsamples
+        # self.logq /= self.num_zsamples
 
         # For reporting purposes only
         self.logp /= self.num_zsamples
         self.kl /= self.num_zsamples
         
         self.obj_batch = self.logp_xz - self.logq     # variational free energy
+        self.obj_batch /= self.num_zsamples
         self.timing_info = np.array([encoding_time,decoding_time_average])
 
         batch_size = self.obj_batch.shape[0]

@@ -63,7 +63,7 @@ from householder_pose import model as householder_pose
 from planar_pose import model as planar_pose 
 
 from vae_mnist import model as vae_mnist
-from iaf_mnist import model as iaf_mnist
+from iaf_mnist_seb import model as iaf_mnist
 from iwae_mnist import model as iwae_mnist
 from householder_mnist import model as householder_mnist
 from planar_mnist import model as planar_mnist
@@ -140,7 +140,7 @@ elif data_type=='mnist':
     vae = planar_mnist.VAE(d, nhidden, nlatent, nlayers, ntrans, temperature, zcount)
   elif model_type=='iaf':
     print 'Using %d IAF transformations' % ntrans
-    vae = iaf_mnist.VAE(d, nhidden, nlatent, nlayers, ntrans, temperature, zcount)
+    vae = iaf_mnist.VAE(d, nhidden, nlatent, zcount)
 
 # Load in pre trained model if provided
 init_model = args['--init-model']

@@ -100,6 +100,7 @@ class VAE(chainer.Chain):
             # Compute objective
             self.kl += (encoder_log-prior_log)
             self.logp += bernoulli_logp(x, self.p_ber_prob_logit)
+            # pdb.set_trace()
 
         current_temperature = min(self.temperature['value'],1.0)
         self.temperature['value'] += self.temperature['increment']
@@ -114,5 +115,7 @@ class VAE(chainer.Chain):
         batch_size = self.obj_batch.shape[0]
         
         self.obj = -F.sum(self.obj_batch)/batch_size
+
+        # pdb.set_trace()
         
         return self.obj
