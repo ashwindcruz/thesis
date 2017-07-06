@@ -56,11 +56,13 @@ from chainer import computational_graph
 import chainer.functions as F
 import cupy
 
-from vae_pose import model as vae_pose
+from adgm_pose import model as adgm_pose
 from iaf_pose import model as iaf_pose 
 from iwae_pose import model as iwae_pose 
 from householder_pose import model as householder_pose
 from planar_pose import model as planar_pose 
+from sdgm_pose import model as sdgm_pose
+from vae_pose import model as vae_pose
 
 from vae_mnist import model as vae_mnist
 from iaf_mnist import model as iaf_mnist
@@ -116,6 +118,10 @@ ntrans = int(args['--ntrans'])
 if data_type=='pose':
   if model_type=='vae':
     vae = vae_pose.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
+  elif model_type=='adgm':
+    vae = adgm_pose.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)  
+  elif model_type=='sdgm':
+    vae = sdgm_pose.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)  
   elif model_type=='iwae':
     vae = iwae_pose.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
   elif model_type=='householder':
