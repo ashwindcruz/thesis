@@ -31,7 +31,7 @@ def best_results(master_list_elbo, master_list_sem, min_epoch):
 
 
 exp_folder = sys.argv[1]
-models = ['vae', 'iwae', 'householder_1t', 'householder_10t', 'iaf_1t', 'iaf_2t', 'iaf_3t', 'iaf_4t', 'iaf_8t']
+models = ['vae', 'iwae', 'householder_1t', 'householder_10t', 'iaf_1t', 'iaf_2t', 'iaf_3t', 'iaf_4t', 'iaf_8t', 'adgm', 'sdgm']
 # models = ['vae', 'iwae']
 master_list_elbo = []
 master_list_sem = []

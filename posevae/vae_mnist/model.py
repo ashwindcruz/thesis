@@ -14,7 +14,6 @@ from util import gaussian_logp
 from util import gaussian_logp0
 from util import bernoulli_logp
 
-
 class VAE(chainer.Chain):
     def __init__(self, dim_in, dim_hidden, dim_latent, num_layers, temperature, num_zsamples=1):
        

@@ -119,17 +119,17 @@ class VAE(chainer.Chain):
 
         return self.pmu_a, self.pln_var_a
 
-    def decode_x(self,z):
+    def decode(self,z):
         h = F.crelu(self.plinx0(z))
 
         for i in range(self.num_layers-1):
             layer_name = 'plinx' + str(i+1)
             h = F.crelu(self[layer_name](h))
 
-        self.pmu_x = self.plinx_mu(h)
-        self.pln_var_x = self.plinx_ln_var(h)
+        self.pmu = self.plinx_mu(h)
+        self.pln_var = self.plinx_ln_var(h)
 
-        return self.pmu_x, self.pln_var_x
+        return self.pmu, self.pln_var
 
 
     def __call__(self, x):
@@ -167,7 +167,7 @@ class VAE(chainer.Chain):
             # Compute p(x|z)
             decoding_time = time.time()
             pmu_a, pln_var_a = self.decode_a(z, x)
-            pmu_x, pln_var_x = self.decode_x(z)
+            pmu_x, pln_var_x = self.decode(z)
             decoding_time = time.time() - decoding_time
             decoding_time_average += decoding_time
 

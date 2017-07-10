@@ -119,7 +119,16 @@ class VAE(chainer.Chain):
 
         return self.pmu_a, self.pln_var_a
 
-    def decode_x(self,z, a):
+    def decode(self,z):
+        # pdb.set_trace()
+        a = self.a_enc
+
+        # If this function is coming from the sampling call, the batch size of z and a won't match. Manually handle that here.
+        if (a.shape[0]!=z.shape[0]):
+            a.volatile = 'ON'
+            batch_size = z.shape[0]
+            a.data = a.data[0:batch_size,:]
+
         net_input = F.concat((z,a), axis=1)
 
         h = F.crelu(self.plinx0(net_input))
@@ -128,10 +137,10 @@ class VAE(chainer.Chain):
             layer_name = 'plinx' + str(i+1)
             h = F.crelu(self[layer_name](h))
 
-        self.pmu_x = self.plinx_mu(h)
-        self.pln_var_x = self.plinx_ln_var(h)
+        self.pmu = self.plinx_mu(h)
+        self.pln_var = self.plinx_ln_var(h)
 
-        return self.pmu_x, self.pln_var_x
+        return self.pmu, self.pln_var
 
 
     def __call__(self, x):
@@ -141,6 +150,7 @@ class VAE(chainer.Chain):
         encoding_time_1 = float(time.time() - encoding_time_1)
 
         a_enc = F.gaussian(qmu_a, qln_var_a)
+        self.a_enc = a_enc 
         
         encoding_time_2 = time.time()
         qmu_z, qln_var_z = self.encode_z(x, a_enc)
@@ -169,7 +179,7 @@ class VAE(chainer.Chain):
             # Compute p(x|z)
             decoding_time = time.time()
             pmu_a, pln_var_a = self.decode_a(z)
-            pmu_x, pln_var_x = self.decode_x(z, a_enc)
+            pmu_x, pln_var_x = self.decode(z)
             decoding_time = time.time() - decoding_time
             decoding_time_average += decoding_time
 

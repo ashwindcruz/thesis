@@ -64,11 +64,13 @@ from planar_pose import model as planar_pose
 from sdgm_pose import model as sdgm_pose
 from vae_pose import model as vae_pose
 
-from vae_mnist import model as vae_mnist
+from adgm_mnist import model as adgm_mnist
 from iaf_mnist import model as iaf_mnist
 from iwae_mnist import model as iwae_mnist
 from householder_mnist import model as householder_mnist
 from planar_mnist import model as planar_mnist
+from sdgm_mnist import model as sdgm_mnist
+from vae_mnist import model as vae_mnist
 
 import util
 
@@ -136,6 +138,10 @@ if data_type=='pose':
 elif data_type=='mnist':
   if model_type=='vae':
     vae = vae_mnist.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
+  elif model_type=='adgm':
+    vae = adgm_mnist.VAE(d, nhidden, nlatent, nlayers, temperature, zcount) 
+  elif model_type=='sdgm':
+    vae = sdgm_mnist.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)  
   elif model_type=='iwae':
     vae = iwae_mnist.VAE(d, nhidden, nlatent, nlayers, temperature, zcount)
   elif model_type=='householder':
@@ -283,13 +289,11 @@ with cupy.cuda.Device(gpu_id):
         # Get the ELBO for the training and testing set and record it
         # -1 is because we want to record the first set which has bi value of 1
         if((bi-1)%log_interval==0):
-            eval_batch_size = 8192
-            
             #print('##################### Post Epoch Evaluation      #####################')
             #util.evaluate_dataset(vae, X_train, batch_size, train_log_file, False, opt)
             util.evaluate_dataset(vae, X_validation, batch_size, test_log_file, False, opt)   
 
-            if ((args['-o'] is not None) and ((bi-1)%(log_interval*100)==0)): #Additional *5 term because we don't want a checkpoint every log point
+            if ((args['-o'] is not None) and ((bi-1)%(log_interval*100)==0)): #Additional *100 term because we don't want a checkpoint every log point
                 print('##################### Saving Model Checkpoint     #####################')
 
                 batch_number = str(bi).zfill(6)
@@ -308,7 +312,7 @@ with cupy.cuda.Device(gpu_id):
             counter +=1
             print "   # sampling"
             z = np.random.normal(loc=0.0, scale=1.0, size=(1024,nlatent))
-            z = chainer.Variable(xp.asarray(z, dtype=np.float32))
+            z = chainer.Variable(xp.asarray(z, dtype=np.float32), volatile='ON')
             vae.decode(z)
             Xsample = F.gaussian(vae.pmu, vae.pln_var)
             Xsample.to_cpu()
@@ -319,7 +323,7 @@ with cupy.cuda.Device(gpu_id):
             counter +=1
             print "   # sampling"
             z = np.random.normal(loc=0.0, scale=1.0, size=(8,nlatent))
-            z = chainer.Variable(xp.asarray(z, dtype=np.float32))
+            z = chainer.Variable(xp.asarray(z, dtype=np.float32), volatile='ON')
             vae.decode(z)
             Xsample_ber_prob = (F.sigmoid(vae.p_ber_prob_logit))
             Xsample_ber_prob.to_cpu()
@@ -359,8 +363,3 @@ if args['-o'] is not None:
       f['epochs_seen'] = vae.epochs_seen
       f['temperature_increment'] = vae.temperature['increment']
       f['temperature_value'] = vae.temperature['value']
-
-    # Possibly unnecessary as at the start, alpha is set appropripately using the store vae.epochs_seen value
-    #opt_file = directory + '/opt_' + args['-o'] + '.h5'
-    #print "Writing optimizer to '%s' ..." % (opt_file)
-    #serializers.save_hdf5(opt_file, opt)
