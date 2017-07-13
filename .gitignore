@@ -1,18 +1,9 @@
-posevae/data/MSRC12-X-d60.mat
-posevae/data/pose_training.mat
-posevae/data/pose_testing.mat
-posevae/data/pose_validation.mat
-posevae/data/moons_tight.pkl
-posevae/data/moons_tight_training.mat
-posevae/data/moons_tight_validation.mat
-posevae/data/moons_0.2.pkl
-posevae/data/moons_0.2_training.mat
-posevae/data/moons_0.2_validation.mat
-posevae/data/mnist_training.mat
-posevae/data/mnist_validation.mat
-posevae/data/mnist_testing.mat
-posevae/data/celebA_scaled_training.h5
+posevae/data/
+posevae/pose_results/
+posevae/mnist_results/
 
-mnistvae/data/mnist_training.mat
-mnistvae/data/mnist_validation.mat
-mnistvae/data/mnist_testing.mat
+mnistvae/data/
+
+azureChainer/
+chainer/
+ChainerTutorial/
