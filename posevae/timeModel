@@ -17,7 +17,7 @@ for i in `seq 1 3`;
 do
 for j in "${samples[@]}"
 do
-./train.py -g 0 -o 'samples_'$j'_1t_timing_run_'$i --model-type iaf --vae-samples $j --trans 1 --nlatent 16 --nhidden 512 \
+./train.py -g 0 -o 'samples_'$j'_3t_timing_run_'$i --model-type iaf --vae-samples $j --trans 3 --nlatent 16 --nhidden 512 \
 -b 16384 --batch-limit 100 -t 180000 --time-print 600 --epoch-sample 200 --log-interval 1 --data pose\
  --init-temp 0 --temp-epoch 200 --init-learn 1e-4 --learn-decay 3e-3 --weight-decay 0 --init-model none --init-opt none
 #echo 'samples_'$j'_timing_run_'$i
