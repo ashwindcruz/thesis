@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Increasing number of samples in each for loop
+
+models=('vae' 'iwae' 'householder' 'adgm' 'sdgm')
+
+
+for i in `seq 1 3`;
+do
+for j in "${models[@]}"
+do 	
+./train.py -g 0 -o 'timing_samples_1_run_'$i --model-type $j --vae-samples 1 --ntrans 1 --nlatent 50 --nhidden 200 --nlayers 2\
+ -b 4096 --batch-limit 100 -t 1000000 --time-print 10 --epoch-sample 200 --log-interval 1 --data mnist \
+ --init-temp 0 --temp-epoch 200 --init-learn 10e-4 --learn-decay 3e-3 --weight-decay 0 --init-model none 
+done
+done
+
+models_small=('vae' 'iwae')
+samples=(2 5)
+for i in `seq 1 3`;
+do
+for j in "${models_small[@]}"
+do 	
+for k in "${samples[@]}"
+do
+./train.py -g 0 -o 'timing_samples_'$k'_run_'$i --model-type $j --vae-samples $k --ntrans 1 --nlatent 50 --nhidden 200 --nlayers 2\
+ -b 4096 --batch-limit 100 -t 1000000 --time-print 10 --epoch-sample 200 --log-interval 1 --data mnist \
+ --init-temp 0 --temp-epoch 200 --init-learn 10e-4 --learn-decay 3e-3 --weight-decay 0 --init-model none 
+done
+done
+done
+
+for i in `seq 1 3`;
+do
+./train.py -g 0 -o 'timing_samples_1_10t_run_'$i --model-type householder --vae-samples 1 --ntrans 10 --nlatent 50 --nhidden 200 --nlayers 2\
+ -b 4096 --batch-limit 200 -t 1000000 --time-print 10 --epoch-sample 200 --log-interval 1 --data mnist \
+ --init-temp 0 --temp-epoch 200 --init-learn 10e-4 --learn-decay 3e-3 --weight-decay 0 --init-model none 
+done
+
+
+
+
+
