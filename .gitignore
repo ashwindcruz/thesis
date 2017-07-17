@@ -1,6 +1,7 @@
 posevae/data/
 posevae/pose_results/
 posevae/mnist_results/
+posevae/celebA_results/
 
 mnistvae/data/
 
